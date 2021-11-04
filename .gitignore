@@ -40,3 +40,7 @@ Thumbs.db
 /Makefile
 /cmake_install.cmake
 /spa
+
+/.vs
+/cmake/.vs
+/cmake/out/build
