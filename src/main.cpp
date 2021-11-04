@@ -15,6 +15,8 @@
 #include "mpi.h"
 #include "sparta.h"
 #include "input.h"
+#include <iostream>
+using namespace std;
 
 using namespace SPARTA_NS;
 
@@ -28,6 +30,7 @@ int main(int argc, char **argv)
 
   SPARTA *sparta = new SPARTA(argc,argv,MPI_COMM_WORLD);
   sparta->input->file();
+  //cout << "hello tyy" << endl;
   delete sparta;
 
   MPI_Finalize();

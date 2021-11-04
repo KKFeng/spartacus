@@ -33,7 +33,8 @@
 #include "timer.h"
 #include "memory.h"
 #include "error.h"
-
+#include <iostream>
+using namespace std;
 using namespace SPARTA_NS;
 
 /* ----------------------------------------------------------------------

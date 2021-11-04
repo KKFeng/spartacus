@@ -145,6 +145,23 @@ class Grid : protected Pointers {
     double volume;            // flow volume of cell or sub cell
                               // entire cell volume for split cell
     double weight;            // fnum weighting for this cell
+
+    double qx_ave;          // average q for sbgk model  
+    double qy_ave;
+    double qz_ave;
+
+    double nu;
+    double nu1;
+    double sigmaave[6];
+    double qave[3];
+    double v[3];
+    double Temp;
+    double psai1, psai2;
+    double nrho;
+    double v_mpv;
+    double Wmax;
+    double Wmax0;
+
   };
 
   // additional info for owned or ghost split cell or sub cell

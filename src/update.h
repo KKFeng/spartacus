@@ -17,6 +17,8 @@
 
 #include "math.h"
 #include "pointers.h"
+#include "random_mars.h"
+#include "random_park.h"
 
 namespace SPARTA_NS {
 
@@ -34,6 +36,8 @@ class Update : protected Pointers {
   double boltz;          // Boltzmann constant (eng/degree K)
   double mvv2e;          // conversion of mv^2 to energy
 
+  double alpha;           // refrence lenth for uspbgk
+  double Pr;
   double fnum;           // ratio of real particles to simulation particles
   double nrho;           // number density of background gas
   double vstream[3];     // streaming velocity of background gas
@@ -148,9 +152,14 @@ class Update : protected Pointers {
     v[2] = -vy*wn + vz*rn;
   };
 
+  // FnPtr代表着一种类型，
+  // 这种类型可以定义一个指向返回值为void，参数为空的指针
+
   typedef void (Update::*FnPtr)();
   FnPtr moveptr;             // ptr to move method
+  FnPtr moveptr2;
   template < int, int > void move();
+  template < int, int > void move2();
 
   int perturbflag;
   typedef void (Update::*FnPtr2)(double, double *, double *);

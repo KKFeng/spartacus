@@ -12,6 +12,14 @@
    See the README file in the top-level SPARTA directory.
 ------------------------------------------------------------------------- */
 
+/*
+    filename:   collide.cpp
+    version :   1.0
+    abstract:   added bgk model at line 525
+    author  :   Peng Tian
+    date    :   20210516
+*/
+
 #include "math.h"
 #include "string.h"
 #include "collide.h"
@@ -28,8 +36,10 @@
 #include "random_park.h"
 #include "memory.h"
 #include "error.h"
+#include <iostream>
 
 using namespace SPARTA_NS;
+using namespace std;              // added for cout
 
 enum{NONE,DISCRETE,SMOOTH};       // several files  (NOTE: change order)
 enum{PKEEP,PINSERT,PDONE,PDISCARD,PENTRY,PEXIT,PSURF};   // several files
@@ -75,6 +85,7 @@ Collide::Collide(SPARTA *sparta, int, char **arg) : Pointers(sparta)
   vre_first = 1;
   vre_start = 1;
   vre_every = 0;
+  W_every = 1;
   remainflag = 1;
   vremax = NULL;
   vremax_initial = NULL;
@@ -89,6 +100,17 @@ Collide::Collide(SPARTA *sparta, int, char **arg) : Pointers(sparta)
   ambiflag = 0;
   maxelectron = 0;
   elist = NULL;
+
+  esbgkflag = 0;
+  sbgkflag = 0;
+  bgkflag = 0;
+  ubgkflag = 0;
+  qaveflag = 0;
+  matom = 0;
+  omegaatom = 0;
+  murefatom = 0;
+  Trefatom = 0;
+  ktrefomiga2muref = 0;
 
   // used if near-neighbor model is invoked
 
@@ -335,7 +357,8 @@ void Collide::modify_params(int narg, char **arg)
   if (narg == 0) error->all(FLERR,"Illegal collide_modify command");
 
   int iarg = 0;
-  while (iarg < narg) {
+  while (iarg < narg) 
+  {
     if (strcmp(arg[iarg],"vremax") == 0) {
       if (iarg+3 > narg) error->all(FLERR,"Illegal collide_modify command");
       vre_every = atoi(arg[iarg+1]);
@@ -344,7 +367,31 @@ void Collide::modify_params(int narg, char **arg)
       else if (strcmp(arg[iarg+2],"no") == 0) vre_start = 0;
       else error->all(FLERR,"Illegal collide_modify command");
       iarg += 3;
-    } else if (strcmp(arg[iarg],"remain") == 0) {
+    } 
+    if (strcmp(arg[iarg], "resetWmax") == 0) {
+        if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_modify command");
+        W_every = atoi(arg[iarg + 1]);
+        if (W_every < 0) error->all(FLERR, "Illegal collide_modify command");
+        iarg += 2;
+    }
+    //added for particle bgk 
+    else if (strcmp(arg[iarg], "bgk") == 0) {
+        if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
+        if (strcmp(arg[iarg + 1], "esbgk") == 0) esbgkflag = 1;
+        else if (strcmp(arg[iarg + 1], "sbgk") == 0) sbgkflag = 1;
+        else if (strcmp(arg[iarg + 1], "bgk") == 0) bgkflag = 1;
+        else if (strcmp(arg[iarg + 1], "ubgk") == 0) ubgkflag = 1;
+        else error->all(FLERR, "Illegal collide_bgk_modify command");
+        iarg += 2;
+    }
+    else if (strcmp(arg[iarg], "qave") == 0) {
+        if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
+        if (strcmp(arg[iarg + 1], "yes") == 0) qaveflag = 1;
+        //else if (strcmp(arg[iarg + 1], "no") == 0) sbgkflag = 1;
+        else error->all(FLERR, "Illegal collide_bgk_modify command");
+        iarg += 2;
+    }
+    else if (strcmp(arg[iarg],"remain") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal collide_modify command");
       if (strcmp(arg[iarg+1],"yes") == 0) remainflag = 1;
       else if (strcmp(arg[iarg+1],"no") == 0) remainflag = 0;
@@ -399,6 +446,133 @@ void Collide::reset_vremax()
         if (remainflag) remain[icell][igroup][jgroup] = 0.0;
       }
 }
+
+/* ----------------------------------------------------------------------
+  compute macro quantities for all cells
+  including velocity, temprature, shear stress and heat flux
+------------------------------------------------------------------------- */
+
+void Collide::computeMacro()
+{
+    int i, j, k, m, n, ip, np,icell,isp;
+    int nattempt, reactflag, bgk_nattempt;
+    double attempt,volume,bgk_attempt,Pr,vsq,Temp,nu,sqrt_R,dt_nu,alpha,Pc,tao,tao_coth,c2;
+    double sigma_scale, q_scale;
+    double sigma[6], q[3];
+    Particle::OnePart* ipart, * jpart, * kpart;
+
+    // loop over cells I own
+
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::ChildCell* cells = grid->cells;
+    Particle::OnePart* particles = particle->particles;
+    Particle::Species* species = particle->species;//added for mass
+
+    int* next = particle->next;
+    Pr = update->Pr;
+
+    // compute macroscopic quantities for all cells
+    for (icell = 0; icell < nglocal; icell++)
+    {
+        np = cinfo[icell].count;
+        if (np <= 3) continue;
+
+        ip = cinfo[icell].first;
+        volume = cinfo[icell].volume / cinfo[icell].weight;
+        cinfo[icell].nrho = np * update->fnum / volume;
+        if (volume == 0.0) error->one(FLERR, "Collision cell volume is zero");
+        isp = particles[ip].ispecies;
+        matom = species[isp].mass;
+        omegaatom = species[isp].omega;
+        murefatom = species[isp].muref;
+        Trefatom = species[isp].Tref;
+        ktrefomiga2muref = update->boltz * pow(Trefatom, omegaatom) / murefatom;
+
+        double a[6] = { 0 };
+        while (ip >= 0) {
+            a[0] += particles[ip].v[0];
+            a[1] += particles[ip].v[1];
+            a[2] += particles[ip].v[2];
+            a[3] += (particles[ip].v[0]) * (particles[ip].v[0]);
+            a[4] += (particles[ip].v[1]) * (particles[ip].v[1]);
+            a[5] += (particles[ip].v[2]) * (particles[ip].v[2]);
+            ip = next[ip];
+        }
+        for (i = 0; i < 3; i++){
+            cinfo[icell].v[i] = a[i] / np;
+        }
+        vsq = a[3] + a[4] + a[5];
+        cinfo[icell].Temp = matom * (vsq - (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) / np) / (3 * update->boltz * (np));
+        Temp = cinfo[icell].Temp;
+        sqrt_R = sqrt(update->boltz / matom);
+        cinfo[icell].v_mpv = sqrt_R * sqrt(Temp);
+        nu = cinfo[icell].nrho * ktrefomiga2muref * pow(Temp, (1 - omegaatom));
+        cinfo[icell].nu = nu;
+        dt_nu = update->dt * nu;
+        Pc = exp(-0.1 / dt_nu);
+        tao = nu * update->dt / 2.0;
+        tao_coth = tao * (1.0 + 2.0 / (exp(2.0 * tao) - 1.0));
+        //cinfo[icell].psai1 = 1 - tao_coth;
+        //cinfo[icell].psai2 = 1.5 - tao_coth;
+        cinfo[icell].psai1 = Pc * (1 - tao_coth);
+        cinfo[icell].psai2 = ((1 - Pc) * exp(-Pr * dt_nu) - exp(-dt_nu) + Pc) / Pr / (1 - exp(-dt_nu)) - Pc * tao_coth;
+
+        // compute sigmaij and qi
+        ip = cinfo[icell].first;
+        double b[12] = { 0 };
+        while (ip >= 0)
+        {
+            b[0] = pow((particles[ip].v[0] - cinfo[icell].v[0]), 2);
+            b[1] = pow((particles[ip].v[1] - cinfo[icell].v[1]), 2);
+            b[2] = pow((particles[ip].v[2] - cinfo[icell].v[2]), 2);
+            b[3] += b[0];  // sigmaxx
+            b[4] += b[1]; // sigmayy
+            b[5] += b[2]; // sigmazz
+            c2 = b[0] + b[1] + b[2];
+            b[6] += (particles[ip].v[0] - cinfo[icell].v[0]) * (particles[ip].v[1] - cinfo[icell].v[1]); // sigmaxy
+            b[7] += (particles[ip].v[0] - cinfo[icell].v[0]) * (particles[ip].v[2] - cinfo[icell].v[2]); // sigmaxz
+            b[8] += (particles[ip].v[2] - cinfo[icell].v[2]) * (particles[ip].v[1] - cinfo[icell].v[1]); // sigmayz
+            b[9] += (particles[ip].v[0] - cinfo[icell].v[0]) * c2; // qx
+            b[10] += (particles[ip].v[1] - cinfo[icell].v[1]) * c2; // qy
+            b[11] += (particles[ip].v[2] - cinfo[icell].v[2]) * c2; // qz
+            ip = next[ip];
+        }
+        sigma_scale = 2 * update->fnum * np / (np - 1) / (2 + dt_nu * Pc) / volume;
+        q_scale = np * update->fnum * np / (np - 1) / (np - 2) / (2 + Pr * dt_nu * Pc) / volume;
+        //sigma_scale = 2 * update->fnum * np / (np - 1) / (2 + dt_nu) / volume;
+        //q_scale = np * update->fnum * np / (np - 1) / (np - 2) / (2 + Pr * dt_nu) / volume;
+
+        for (i = 0; i < 6; i++) {
+            sigma[i] = b[i + 3] * sigma_scale;
+        }
+        for (i = 0; i < 3; i++) {
+            q[i] = b[i + 9] * q_scale;
+        }
+        // storing macroscopic quantities
+        if ((abs(cinfo[icell].sigmaave[0]) < 1e-20)){
+            for (i = 0; i < 6; i++) {
+                cinfo[icell].sigmaave[i] = sigma[i];
+            }
+        }
+        else {
+            for (i = 0; i < 6; i++) {
+                cinfo[icell].sigmaave[i] = cinfo[icell].sigmaave[i] * 0.99 + sigma[i] * 0.01;
+            }
+        }
+
+        if ((abs(cinfo[icell].qave[0]) < 1e-20)) {
+            for (i = 0; i < 3; i++) {
+                cinfo[icell].qave[i] = q[i];
+            }
+        }
+        else {
+            for (i = 0; i < 3; i++) {
+                cinfo[icell].qave[i] = cinfo[icell].qave[i] * 0.99 + q[i] * 0.01;
+            }
+        }
+    } // end of computing macroscopic quantities for all cells
+}
+
 
 /* ----------------------------------------------------------------------
   NTC algorithm
@@ -457,20 +631,25 @@ void Collide::collisions()
 template < int NEARCP > void Collide::collisions_one()
 {
   int i,j,k,m,n,ip,np;
-  int nattempt,reactflag;
-  double attempt,volume;
+  int nattempt,reactflag,bgk_nattempt;
+  double attempt,volume,bgk_attempt;
   Particle::OnePart *ipart,*jpart,*kpart;
 
   // loop over cells I own
 
   Grid::ChildInfo *cinfo = grid->cinfo;
-
+  Grid::ChildCell* cells = grid->cells;
   Particle::OnePart *particles = particle->particles;
+  Particle::Species* species = particle->species;//added for mass
+
   int *next = particle->next;
+  double Pr = update->Pr;
 
   for (int icell = 0; icell < nglocal; icell++) {
     np = cinfo[icell].count;
-    if (np <= 1) continue;
+
+    //if (np <= 1) continue;
+    if (np <= 3) continue;
 
     if (NEARCP) {
       if (np > max_nn) realloc_nn(np,nn_last_partner);
@@ -489,101 +668,380 @@ template < int NEARCP > void Collide::collisions_one()
       memory->create(plist,npmax,"collide:plist");
     }
 
-    n = 0;
-    while (ip >= 0) {
-      plist[n++] = ip;
-      ip = next[ip];
+    // particle bgk relaxation begin
+	
+    if (ubgkflag)
+    {
+        double Temp = cinfo[icell].Temp;
+        bgk_attempt = attempt_bgk(icell);
+        bgk_nattempt = static_cast<int> (bgk_attempt + (random->uniform()));
+
+        n = 0;
+        while (ip >= 0) {
+            plist[n++] = ip;
+            ip = next[ip];
+        }
+
+        int randarray[np];
+        for (i = 0; i < np; i++) {
+            randarray[i] = i + 1;
+        }
+        if (bgk_nattempt < np / 2) {
+            for (i = 0; i < bgk_nattempt; i++) {
+                int t = i + (np - i) * random->uniform();
+                swap(randarray[i], randarray[t]);
+            }
+        } else {
+            for (i = np - 1; i > bgk_nattempt - 1; i--) {
+                int t = i * random->uniform();
+                swap(randarray[i], randarray[t]);
+            }
+        }
+
+        double var[16];
+
+        for (int iattempt = 0; iattempt < bgk_nattempt; iattempt++) {
+            i = randarray[iattempt] - 1;
+            ipart = &particles[plist[i]];
+            perform_bgk(ipart, Temp, var, icell);
+        }
+
+        // compute T and v after bgk_relaxation
+
+        ip = cinfo[icell].first;
+        double vx_ = 0, vy_ = 0, vz_ = 0, vsq_ = 0;
+        while (ip >= 0) {
+            vx_ += particles[ip].v[0];
+            vy_ += particles[ip].v[1];
+            vz_ += particles[ip].v[2];
+            vsq_ += particles[ip].v[0] * particles[ip].v[0] + particles[ip].v[1] * particles[ip].v[1] + particles[ip].v[2] * particles[ip].v[2];//usq
+            ip = next[ip];
+        }
+        double Temp_ = matom * (vsq_ - (vx_ * vx_ + vy_ * vy_ + vz_ * vz_) / np) / (3 * update->boltz * (np));
+        vx_ = vx_ / np, vy_ = vy_ / np, vz_ = vz_ / np;
+
+        //momentum and energy conservation for all particles
+
+        ip = cinfo[icell].first;
+        double TempScale = sqrt(Temp / Temp_);
+        while (ip >= 0) {
+            particles[ip].v[0] = (particles[ip].v[0] - vx_) * TempScale + cinfo[icell].v[0];
+            particles[ip].v[1] = (particles[ip].v[1] - vy_) * TempScale + cinfo[icell].v[1];
+            particles[ip].v[2] = (particles[ip].v[2] - vz_) * TempScale + cinfo[icell].v[2];
+            ip = next[ip];
+        }// conservation end
+
+        if (((update->ntimestep) % W_every) == 0)
+        {
+            cinfo[icell].Wmax = cinfo[icell].Wmax0;
+            cinfo[icell].Wmax0 = 1.0;
+        }
     }
+ //   else if (sbgkflag || esbgkflag || bgkflag)
+ //   {
+	//	 //compute velocity and temp for bgk 
+ //       
+ //       
+ //           int isp = particles[ip].ispecies;
+ //           matom = species[isp].mass;
+ //           omegaatom = species[isp].omega;
+ //           murefatom = species[isp].muref;
+ //           Trefatom = species[isp].Tref;
+ //           ktrefomiga2muref = update->boltz * pow(Trefatom, omegaatom) / murefatom;
+ //           //double mAr = 6.63e-26;
+ //           double m = 0, vx = 0, vy = 0, vz = 0, vsq = 0, vx2 = 0,
+ //               vy2 = 0, vz2 = 0, vxvy = 0, vxvz = 0, vyvz = 0;
+ //           if (esbgkflag)
+ //           {
+ //               n = 0;
+ //               while (ip >= 0) {
+ //                   plist[n] = ip;
+ //                   vx += particles[ip].v[0];
+ //                   vy += particles[ip].v[1];
+ //                   vz += particles[ip].v[2];
 
-    // attempt = exact collision attempt count for all particles in cell
-    // nattempt = rounded attempt with RN
-    // if no attempts, continue to next grid cell
+ //                   vx2 += (particles[ip].v[0]) * (particles[ip].v[0]);
+ //                   vy2 += (particles[ip].v[1]) * (particles[ip].v[1]);
+ //                   vz2 += (particles[ip].v[2]) * (particles[ip].v[2]);
 
-    attempt = attempt_collision(icell,np,volume);
-    nattempt = static_cast<int> (attempt);
+ //                   vxvy += (particles[ip].v[0]) * (particles[ip].v[1]);
+ //                   vxvz += (particles[ip].v[0]) * (particles[ip].v[2]);
+ //                   vyvz += (particles[ip].v[1]) * (particles[ip].v[2]);
 
-    if (!nattempt) continue;
-    nattempt_one += nattempt;
+ //                   n++;
+ //                   ip = next[ip];
+ //               }
+ //           }
+ //           else
+ //           {
+ //               n = 0;
+ //               while (ip >= 0) {
+ //                   plist[n] = ip;
 
-    // perform collisions
-    // select random pair of particles, cannot be same
-    // test if collision actually occurs
+ //                   vx += particles[ip].v[0];
+ //                   vy += particles[ip].v[1];
+ //                   vz += particles[ip].v[2];
 
-    for (int iattempt = 0; iattempt < nattempt; iattempt++) {
-      i = np * random->uniform();
-      if (NEARCP) j = find_nn(i,np);
-      else {
-        j = np * random->uniform();
-        while (i == j) j = np * random->uniform();
-      }
+ //                   vx2 += (particles[ip].v[0]) * (particles[ip].v[0]);
+ //                   vy2 += (particles[ip].v[1]) * (particles[ip].v[1]);
+ //                   vz2 += (particles[ip].v[2]) * (particles[ip].v[2]);
 
-      ipart = &particles[plist[i]];
-      jpart = &particles[plist[j]];
+ //                   n++;
+ //                   ip = next[ip];
+ //               }
+ //           }
 
-      // test if collision actually occurs
-      // continue to next collision if no reaction
+ //           vsq = vx2 + vy2 + vz2;
+ //           double Temp = matom * (vsq - (vx * vx + vy * vy + vz * vz) / np) / (3 * update->boltz * (np));
+ //           double sqrt_R = sqrt(update->boltz / matom);
+ //           double v_mpv = sqrt_R * sqrt(Temp);
 
-      if (!test_collision(icell,0,0,ipart,jpart)) continue;
+ //           vx = vx / np, vy = vy / np, vz = vz / np, vxvy = vxvy / np, vxvz = vxvz / np, vyvz = vyvz / np;
+ //           vx2 = vx2 / np, vy2 = vy2 / np, vz2 = vz2 / np;
 
-      if (NEARCP) {
-        nn_last_partner[i] = j+1;
-        nn_last_partner[j] = i+1;
-      }
+ //           //parameters for esbgk
 
-      // if recombination reaction is possible for this IJ pair
-      // pick a 3rd particle to participate and set cell number density
-      // unless boost factor turns it off, or there is no 3rd particle
+ //           double scale = 0, s11 = 0, s12 = 0, s13 = 0, s22 = 0, s23 = 0, s33 = 0;
 
-      if (recombflag && recomb_ijflag[ipart->ispecies][jpart->ispecies]) {
-        if (random->uniform() > react->recomb_boost_inverse)
-          react->recomb_species = -1;
-        else if (np <= 2)
-          react->recomb_species = -1;
-        else {
-          k = np * random->uniform();
-          while (k == i || k == j) k = np * random->uniform();
-          react->recomb_part3 = &particles[plist[k]];
-          react->recomb_species = react->recomb_part3->ispecies;
-          react->recomb_density = np * update->fnum / volume;
+ //           if (esbgkflag)
+ //           {
+ //               scale = matom * np / ((update->boltz) * Temp * (np - 1));
+ //               s11 = 1.25 - 0.25 * scale * (vx2 - vx * vx);
+ //               s22 = 1.25 - 0.25 * scale * (vy2 - vy * vy);
+ //               s33 = 1.25 - 0.25 * scale * (vz2 - vz * vz);
+ //               s12 = -0.25 * scale * (vxvy - vx * vy);
+ //               s13 = -0.25 * scale * (vxvz - vx * vz);
+ //               s23 = -0.25 * scale * (vyvz - vy * vz);
+ //           } //end of if (esbgkflag)
+
+ //           //parameters for sbgk
+
+ //           double c2 = 0, qx = 0, qy = 0, qz = 0, doublenp = 0, heatfrac = 0, nrho = 0, qmax = 0, A = 0;
+
+ //           if (sbgkflag)
+ //           {
+ //               ip = cinfo[icell].first;
+ //               c2 = 0, qx = 0, qy = 0, qz = 0;
+ //               doublenp = np;
+ //               heatfrac = doublenp * doublenp * update->fnum / (volume * (doublenp - 1) * (doublenp - 2));
+ //               n = 0;
+ //               while (ip >= 0)
+ //               {
+ //                   plist[n] = ip;
+ //                   c2 = pow((particles[ip].v[0] - vx), 2)
+ //                       + pow((particles[ip].v[1] - vy), 2)
+ //                       + pow((particles[ip].v[2] - vz), 2);
+ //                   qx += (particles[ip].v[0] - vx) * c2;
+ //                   qy += (particles[ip].v[1] - vy) * c2;
+ //                   qz += (particles[ip].v[2] - vz) * c2;
+ //                   n++;
+ //                   ip = next[ip];
+ //               }
+ //               qx *= heatfrac;
+ //               qy *= heatfrac;
+ //               qz *= heatfrac;
+
+ //               if (qaveflag)
+ //               {
+ //                   if ((abs(cinfo[icell].qx_ave) < 1e-10))
+ //                   {
+ //                       cinfo[icell].qx_ave = qx;
+ //                       cinfo[icell].qy_ave = qy;
+ //                       cinfo[icell].qz_ave = qz;
+ //                   }
+ //                   else
+ //                   {
+ //                       cinfo[icell].qx_ave = cinfo[icell].qx_ave * 0.99 + qx * 0.01;
+ //                       cinfo[icell].qy_ave = cinfo[icell].qy_ave * 0.99 + qy * 0.01;
+ //                       cinfo[icell].qz_ave = cinfo[icell].qz_ave * 0.99 + qz * 0.01;
+ //                   }
+ //                   qx = cinfo[icell].qx_ave;
+ //                   qy = cinfo[icell].qy_ave;
+ //                   qz = cinfo[icell].qz_ave;
+ //               }
+
+
+ //               nrho = np * update->fnum / volume;
+ //               qmax = max(max(abs(qx), abs(qy)), abs(qz));
+ //               A = 1 + 30 * qmax / pow(v_mpv, 3) / nrho;
+ //           } // end of if (sbgkflag)
+
+ //       
+ //       
+	//	//double var[16] = { vx,vy,vz,s11,s22,s33,s12,s13,s23,v_mpv,qx,qy,qz,A,nrho,icell };
+ //       double var[16] = {};
+	//	//compute number of bgk particles
+ //       double ktrefomigat2muref = ktrefomiga2muref * pow(cinfo[icell].Temp, (1 - omegaatom));
+	//	bgk_attempt = attempt_bgk(icell, np, ktrefomigat2muref, volume);
+	//	bgk_nattempt = static_cast<int> (bgk_attempt + (random->uniform()));
+
+	//	// select bgk_nattempt particles randomly and perform bgk/esbgk/sbgk
+
+	//	int randarray[np] = { 0 };
+
+	//	for (int i = 0; i < np; i++)
+	//	{
+	//		randarray[i] = i + 1;
+	//	}
+
+	//	if (bgk_nattempt < np / 2) {
+	//		for (int i = 0; i < bgk_nattempt; i++)
+	//		{
+	//			int t = i + (np - i) * random->uniform();
+	//			swap(randarray[i], randarray[t]);
+	//		}
+	//	}
+	//	else {
+	//		for (int i = np - 1; i > bgk_nattempt - 1; i--)
+	//		{
+	//			int t = i * random->uniform();
+	//			swap(randarray[i], randarray[t]);
+	//		}
+	//	}
+
+	//	for (int iattempt = 0; iattempt < bgk_nattempt; iattempt++)
+	//	{
+	//		i = randarray[iattempt] - 1;
+	//		ipart = &particles[plist[i]];
+
+	//		perform_bgk(ipart, Temp, var, icell);
+
+	//	}
+
+	//	// compute T and v after bgk_relaxation
+
+	//	ip = cinfo[icell].first;
+ //       
+	//	double vx_ = 0, vy_ = 0, vz_ = 0, vsq_ = 0;
+	//	n = 0;
+	//	while (ip >= 0) {
+	//		plist[n] = ip;
+	//		vx_ += particles[ip].v[0];
+	//		vy_ += particles[ip].v[1];
+	//		vz_ += particles[ip].v[2];
+	//		vsq_ += particles[ip].v[0] * particles[ip].v[0] + particles[ip].v[1] * particles[ip].v[1] + particles[ip].v[2] * particles[ip].v[2];//usq
+
+	//		n++;
+	//		ip = next[ip];
+	//	}
+	//	double Temp_ = matom * (vsq_ - (vx_ * vx_ + vy_ * vy_ + vz_ * vz_) / np) / (3 * update->boltz * (np));
+	//	vx_ = vx_ / np, vy_ = vy_ / np, vz_ = vz_ / np;
+
+	//	//momentum and energy conservation for all particles-tyy
+
+	//	ip = cinfo[icell].first;
+	//	int n = 0;
+	//	double TempScale = sqrt(cinfo[icell].Temp / Temp_);
+	//	while (ip >= 0) {
+	//		plist[n] = ip;
+	//		particles[ip].v[0] = (particles[ip].v[0] - vx_) * TempScale + cinfo[icell].v[0];
+	//		particles[ip].v[1] = (particles[ip].v[1] - vy_) * TempScale + cinfo[icell].v[1];
+	//		particles[ip].v[2] = (particles[ip].v[2] - vz_) * TempScale + cinfo[icell].v[2];
+	//		n++;
+	//		ip = next[ip];
+	//	}// conservation end
+
+	//	// particle bgk relaxation is over 
+	//} // end of if (sbgkflag || esbgkflag || bgkflag || ubgkflag)
+
+    else {
+
+        n = 0;
+        while (ip >= 0) {
+            plist[n++] = ip;
+            ip = next[ip];
         }
-      }
 
-      // perform collision and possible reaction
+        // attempt = exact collision attempt count for all particles in cell
+        // nattempt = rounded attempt with RN
+        // if no attempts, continue to next grid cell
 
-      setup_collision(ipart,jpart);
-      reactflag = perform_collision(ipart,jpart,kpart);
-      ncollide_one++;
-      if (reactflag) nreact_one++;
-      else continue;
+        attempt = attempt_collision(icell, np, volume);
+        nattempt = static_cast<int> (attempt);
 
-      // if jpart destroyed: delete from plist, add particle to deletion list
-      // exit attempt loop if only single particle left
+        if (!nattempt) continue;
+        nattempt_one += nattempt;
 
-      if (!jpart) {
-        if (ndelete == maxdelete) {
-          maxdelete += DELTADELETE;
-          memory->grow(dellist,maxdelete,"collide:dellist");
+        // perform collisions
+        // select random pair of particles, cannot be same
+        // test if collision actually occurs
+
+        for (int iattempt = 0; iattempt < nattempt; iattempt++) {
+            i = np * random->uniform();
+            if (NEARCP) j = find_nn(i, np);
+            else {
+                j = np * random->uniform();
+                while (i == j) j = np * random->uniform();
+            }
+
+            ipart = &particles[plist[i]];
+            jpart = &particles[plist[j]];
+
+            // test if collision actually occurs
+            // continue to next collision if no reaction
+
+            if (!test_collision(icell, 0, 0, ipart, jpart)) continue;
+
+            if (NEARCP) {
+                nn_last_partner[i] = j + 1;
+                nn_last_partner[j] = i + 1;
+            }
+
+            // if recombination reaction is possible for this IJ pair
+            // pick a 3rd particle to participate and set cell number density
+            // unless boost factor turns it off, or there is no 3rd particle
+
+            if (recombflag && recomb_ijflag[ipart->ispecies][jpart->ispecies]) {
+                if (random->uniform() > react->recomb_boost_inverse)
+                    react->recomb_species = -1;
+                else if (np <= 2)
+                    react->recomb_species = -1;
+                else {
+                    k = np * random->uniform();
+                    while (k == i || k == j) k = np * random->uniform();
+                    react->recomb_part3 = &particles[plist[k]];
+                    react->recomb_species = react->recomb_part3->ispecies;
+                    react->recomb_density = np * update->fnum / volume;
+                }
+            }
+
+            // perform collision and possible reaction
+
+            setup_collision(ipart, jpart);
+            reactflag = perform_collision(ipart, jpart, kpart);
+            ncollide_one++;
+            if (reactflag) nreact_one++;
+            else continue;
+
+            // if jpart destroyed: delete from plist, add particle to deletion list
+            // exit attempt loop if only single particle left
+
+            if (!jpart) {
+                if (ndelete == maxdelete) {
+                    maxdelete += DELTADELETE;
+                    memory->grow(dellist, maxdelete, "collide:dellist");
+                }
+                dellist[ndelete++] = plist[j];
+                np--;
+                plist[j] = plist[np];
+                if (NEARCP) nn_last_partner[j] = nn_last_partner[np];
+                if (np < 2) break;
+            }
+
+            // if kpart created, add to plist
+            // kpart was just added to particle list, so index = nlocal-1
+            // particle data structs may have been realloced by kpart
+
+            if (kpart) {
+                if (np == npmax) {
+                    npmax += DELTAPART;
+                    memory->grow(plist, npmax, "collide:plist");
+                }
+                if (NEARCP) set_nn(np);
+                plist[np++] = particle->nlocal - 1;
+                particles = particle->particles;
+            }
         }
-        dellist[ndelete++] = plist[j];
-        np--;
-        plist[j] = plist[np];
-        if (NEARCP) nn_last_partner[j] = nn_last_partner[np];
-        if (np < 2) break;
-      }
-
-      // if kpart created, add to plist
-      // kpart was just added to particle list, so index = nlocal-1
-      // particle data structs may have been realloced by kpart
-
-      if (kpart) {
-        if (np == npmax) {
-          npmax += DELTAPART;
-          memory->grow(plist,npmax,"collide:plist");
-        }
-        if (NEARCP) set_nn(np);
-        plist[np++] = particle->nlocal-1;
-        particles = particle->particles;
-      }
     }
   }
 }

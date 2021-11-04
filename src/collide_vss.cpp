@@ -12,6 +12,7 @@
    See the README file in the top-level SPARTA directory.
 ------------------------------------------------------------------------- */
 
+
 #include "math.h"
 #include "string.h"
 #include "stdlib.h"
@@ -28,9 +29,12 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+#include <iostream>
+#include <cmath>
 
 using namespace SPARTA_NS;
 using namespace MathConst;
+using namespace std;
 
 enum{NONE,DISCRETE,SMOOTH};            // several files
 enum{CONSTANT,VARIABLE};
@@ -154,6 +158,56 @@ double CollideVSS::attempt_collision(int icell, int np, double volume)
 
 /* ---------------------------------------------------------------------- */
 
+int CollideVSS::dsmcorbgk(int icell, int np, double ktrefomigat2muref, double vcell)
+{
+    double fnum = update->fnum;
+    double dt = update->dt;
+    double nu;
+    int ps = 0;
+
+    //k*Tref^omiga/muref
+    double ktrefomiga2muref = 6.1327346E-17;
+    double Pr_Ar = 0.666666667;
+
+    nu = np * fnum * ktrefomigat2muref / vcell;
+
+    if (nu/dt>1.5)
+    {
+        ps = 1;
+    }
+
+    return ps;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double CollideVSS::attempt_bgk(int icell)
+{
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    double fnum = update->fnum;
+    double dt = update->dt;
+    double Pr = update->Pr;
+    double bgk_nattempt;
+    double nu = cinfo[icell].nu;
+    double np = cinfo[icell].count;
+    //double nu1 = cinfo[icell].nu1;
+    if (np <= 3) 
+    {
+        bgk_nattempt = 0;
+    }
+    else if(esbgkflag)
+    {
+        bgk_nattempt = Pr * np * (1 - exp(-nu * dt));
+    }
+    else 
+    {
+        bgk_nattempt = np * (1 - exp(-nu * dt));
+    }
+    return bgk_nattempt;
+}
+
+/* ---------------------------------------------------------------------- */
+
 double CollideVSS::attempt_collision(int icell, int igroup, int jgroup,
 				     double volume)
 {
@@ -250,7 +304,28 @@ void CollideVSS::setup_collision(Particle::OnePart *ip, Particle::OnePart *jp)
 }
 
 /* ---------------------------------------------------------------------- */
+void CollideVSS::perform_bgk(Particle::OnePart*& ip,
+    double Temp, double arr[], int icell)
+{
+    if (sbgkflag) 
+    {
+        sbgk_atom(ip, Temp, arr, icell);
+    }
+    else if (esbgkflag) 
+    {
+        esbgk_atom(ip, Temp, arr, icell);
+    }
+    else if (ubgkflag)
+    {
+        uspbgk_atom(ip, icell);
+    }
+    else  
+    {
+        bgk_atom(ip, Temp, arr, icell);
+    }
+}
 
+/* ---------------------------------------------------------------------- */
 int CollideVSS::perform_collision(Particle::OnePart *&ip,
                                   Particle::OnePart *&jp,
                                   Particle::OnePart *&kp)
@@ -420,6 +495,399 @@ void CollideVSS::SCATTER_TwoBodyScattering(Particle::OnePart *ip,
   vj[2] = precoln.wcmf - (mass_i*divisor)*wc;
 }
 
+/* ---------------------------------------------------------------------- */
+
+void CollideVSS::esbgk_atom(Particle::OnePart* ip, double Temp, double arr[], int np)
+{
+    Particle::Species* species = particle->species;
+    double* vi = ip->v;
+    vi[0] = random->gaussian() * arr[9];
+    vi[1] = random->gaussian() * arr[9];
+    vi[2] = random->gaussian() * arr[9];
+
+    //Sij*Vbgk
+	double vii[3] = {};
+
+    vii[0] = arr[3] * vi[0] + arr[6] * vi[1] + arr[7] * vi[2];
+    vii[1] = arr[6] * vi[0] + arr[4] * vi[1] + arr[8] * vi[2];
+	vii[2] = arr[7] * vi[0] + arr[8] * vi[1] + arr[5] * vi[2];
+
+    for (int i = 0; i < 3; i++) 
+    {
+        vi[i] = vii[i] + arr[i];
+    }
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+void CollideVSS::bgk_atom(Particle::OnePart* ip, double Temp, double arr[], int np)
+{
+    Particle::Species* species = particle->species;
+    double* vi = ip->v;
+
+    for (int i = 0; i < 3; i++) 
+    {
+        vi[i] = random->gaussian() * arr[9] + arr[i];
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void CollideVSS::sbgk_atom(Particle::OnePart* ip, double Temp, double arr[], int np)
+{
+    Particle::Species* species = particle->species;
+    double* vi = ip->v;
+    double vn[3];
+    for (int i = 0; i < 3; i++) 
+    {
+        vn[i] = random->gaussian();
+    }
+    double pvn2A = ((vn[0] * arr[10] + vn[1] * arr[11] + vn[2] * arr[12])
+        * (vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2] - 5)
+        / 30 / arr[14] / pow(arr[9], 3) + 1) / arr[13];
+
+
+    while (random->uniform() > pvn2A)
+    {
+        for (int i = 0; i < 3; i++) {
+            vn[i] = random->gaussian();
+        }
+        pvn2A = ((vn[0] * arr[10] + vn[1] * arr[11] + vn[2] * arr[12])
+                    * (vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2] - 5)
+                    / 30 / arr[14] / pow(arr[9], 3) + 1) / arr[13];
+
+    }
+
+    for (int i = 0; i < 3; i++) 
+    {
+        vi[i] = vn[i] * arr[9] + arr[i];
+    }
+
+}
+
+/* ---------------------------------------------------------------------- */
+
+void CollideVSS::sbgk_atom1(Particle::OnePart* ip, double Temp, double arr[], int np)
+{
+    Particle::Species* species = particle->species;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    double* vi = ip->v;
+    double vn[3];
+    double pvn2A;
+
+    while (1)
+    {
+        for (int i = 0; i < 3; i++) {
+            vn[i] = random->gaussian();
+        }
+        pvn2A = ((vn[0] * arr[10] + vn[1] * arr[11] + vn[2] * arr[12])
+            * (vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2] - 5)
+            / 30 / arr[14] / pow(arr[9], 3) + 1) / arr[13];
+
+        if (random->uniform() < pvn2A)
+        {
+            break;
+        }
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        vi[i] = vn[i] * arr[9] + arr[i];
+    }
+
+}
+
+/* ---------------------------------------------------------------------- */
+// for couette-new one-dimensional in y derection
+void CollideVSS::uspbgk_atom1(Particle::OnePart* ip, int icell)
+{
+    Particle::Species* species = particle->species;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::ChildCell* cells = grid->cells;
+    double* x = ip->x;
+    double* vi = ip->v;
+    double ynew = x[1] + (random->uniform() - 0.5) * (cells[icell].hi[1] - cells[icell].lo[1]);
+    double vn[3];
+    double psai1 = cinfo[icell].psai1;
+    double psai2 = cinfo[icell].psai2;
+    double nrho = cinfo[icell].nrho;
+    //double v_mpv = cinfo[icell].v_mpv;
+    double vmean[3];
+    double v_mpv;
+
+    double sigma[6];
+    for (int i = 0; i < 6; i++)
+    {
+        sigma[i] = cinfo[icell].sigmaave[i];
+    }
+    double q[3];
+    for (int i = 0; i < 3; i++)
+    {
+        q[i] = cinfo[icell].qave[i];
+    }
+
+    if ((icell == nglocal - 1) && (ynew > cells[icell].hi[1]))
+    {
+        //v_mpv = sqrt(2 * pow(cinfo[icell].v_mpv, 2) - pow(cinfo[icell - 1].v_mpv, 2));
+        //for (int i = 0; i < 3; i++)
+        //{
+        //    vmean[i] = 2 * cinfo[icell].v[i] - cinfo[icell - 1].v[i];
+        //}
+        v_mpv = cinfo[icell].v_mpv;
+        for (int i = 0; i < 3; i++)
+        {
+            vmean[i] = cinfo[icell].v[i];
+        }
+    }
+    else if ((icell == 0) && (ynew < cells[icell].lo[1]))
+    {
+        //v_mpv = 2 * cinfo[icell].v_mpv - cinfo[icell + 1].v_mpv;
+        //v_mpv = sqrt(2 * pow(cinfo[icell].v_mpv, 2) - pow(cinfo[icell + 1].v_mpv, 2));
+        //for (int i = 0; i < 3; i++)
+        //{
+        //    vmean[i] = 2 * cinfo[icell].v[i] - cinfo[icell + 1].v[i];
+        //}
+        v_mpv = cinfo[icell].v_mpv;
+        for (int i = 0; i < 3; i++)
+        {
+            vmean[i] = cinfo[icell].v[i];
+        }
+    }
+    else
+    {
+        if (ynew > cells[icell].hi[1])
+        {
+            v_mpv = cinfo[icell + 1].v_mpv;
+            for (int i = 0; i < 3; i++)
+            {
+                vmean[i] = cinfo[icell + 1].v[i];
+            }
+        }
+        else if (ynew < cells[icell].lo[1])
+        {
+            v_mpv = cinfo[icell - 1].v_mpv;
+            for (int i = 0; i < 3; i++)
+            {
+                vmean[i] = cinfo[icell - 1].v[i];
+            }
+        }
+        else
+        {
+            v_mpv = cinfo[icell].v_mpv;
+            for (int i = 0; i < 3; i++)
+            {
+                vmean[i] = cinfo[icell].v[i];
+            }
+        }
+    }
+    double p = (sigma[0] + sigma[1] + sigma[2]) / 3;
+    for (int i = 0; i < 3; i++)
+    {
+        vn[i] = random->gaussian() * v_mpv;
+    }
+
+    double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
+    double sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2 / 3)
+        + (sigma[1] - p) * (vn[1] * vn[1] - C_2 / 3)
+        + (sigma[2] - p) * (vn[2] * vn[2] - C_2 / 3)
+        + 2 * sigma[3] * vn[0] * vn[1]
+        + 2 * sigma[4] * vn[0] * vn[2]
+        + 2 * sigma[5] * vn[2] * vn[1];
+
+    double W = 1 + psai1 * sigmacc / 2 / nrho / pow(v_mpv, 4)
+        + psai2 * 2.0 / 15.0
+        * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
+        * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5.0);
+
+    if (W > cinfo[icell].Wmax)
+    {
+        cinfo[icell].Wmax = W;
+    }
+    if (W > cinfo[icell].Wmax0)
+    {
+        cinfo[icell].Wmax0 = W;
+    }
+
+    while (random->uniform() > W / cinfo[icell].Wmax)
+    {
+        for (int i = 0; i < 3; i++) 
+        {
+            vn[i] = random->gaussian() * v_mpv;
+        }
+
+        C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
+        sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2 / 3)
+            + (sigma[1] - p) * (vn[1] * vn[1] - C_2 / 3)
+            + (sigma[2] - p) * (vn[2] * vn[2] - C_2 / 3)
+            + 2 * sigma[3] * vn[0] * vn[1]
+            + 2 * sigma[4] * vn[0] * vn[2]
+            + 2 * sigma[5] * vn[2] * vn[1];
+
+        W = 1 + psai1 * sigmacc / 2 / nrho / pow(v_mpv, 4)
+            + psai2 * 2.0 / 15.0
+            * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
+            * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5);
+
+        if (W > cinfo[icell].Wmax)
+        {
+            cinfo[icell].Wmax = W;
+        }
+        if (W > cinfo[icell].Wmax0)
+        {
+            cinfo[icell].Wmax0 = W;
+        }
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        //vi[i] = vn[i] + cinfo[icell].v[i];
+        vi[i] = vn[i] + vmean[i];
+    }
+
+}
+// for 2d interpolation
+void CollideVSS::uspbgk_atom2(Particle::OnePart* ip, int icell)
+{
+    Particle::Species* species = particle->species;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::ChildCell* cells = grid->cells;
+    double* vi = ip->v;
+    double* v_mac = ip->macro_v;
+    double T = ip->Temp;
+    double* x = ip->x;
+
+    double vn[3];
+    double psai1 = cinfo[icell].psai1;
+    double psai2 = cinfo[icell].psai2;
+    double nrho = cinfo[icell].nrho;
+
+    double v_mpv = 14.4306 * sqrt(T);
+    double sigma[6], q[3];
+    for (int i = 0; i < 6; i++)
+    {
+        sigma[i] = cinfo[icell].sigmaave[i];
+    }
+    for (int i = 0; i < 3; i++)
+    {
+        q[i] = cinfo[icell].qave[i];
+    }
+    for (int i = 0; i < 3; i++)
+    {
+        vn[i] = random->gaussian() * v_mpv;
+    }
+    double p = (sigma[0] + sigma[1] + sigma[2]) / 3;
+    double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
+    double sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2 / 3)
+        + (sigma[1] - p) * (vn[1] * vn[1] - C_2 / 3)
+        + (sigma[2] - p) * (vn[2] * vn[2] - C_2 / 3)
+        + 2 * sigma[3] * vn[0] * vn[1]
+        + 2 * sigma[4] * vn[0] * vn[2]
+        + 2 * sigma[5] * vn[2] * vn[1];
+
+    double W = 1 + psai1 * sigmacc / 2 / nrho / pow(v_mpv, 4)
+        + psai2 * 2.0 / 15.0
+        * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
+        * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5.0);
+
+    if (W > cinfo[icell].Wmax)
+    {
+        cinfo[icell].Wmax = W;
+    }
+    if (W > cinfo[icell].Wmax0)
+    {
+        cinfo[icell].Wmax0 = W;
+    }
+
+    while (random->uniform() > W / cinfo[icell].Wmax)
+    {
+        for (int i = 0; i < 3; i++) {
+            vn[i] = random->gaussian() * v_mpv;
+        }
+        C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
+        sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2 / 3)
+            + (sigma[1] - p) * (vn[1] * vn[1] - C_2 / 3)
+            + (sigma[2] - p) * (vn[2] * vn[2] - C_2 / 3)
+            + 2 * sigma[3] * vn[0] * vn[1]
+            + 2 * sigma[4] * vn[0] * vn[2]
+            + 2 * sigma[5] * vn[2] * vn[1];
+
+        W = 1 + psai1 * sigmacc / 2 / nrho / pow(v_mpv, 4)
+            + psai2 * 2.0 / 15.0
+            * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
+            * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5);
+
+        if (W > cinfo[icell].Wmax)
+        {
+            cinfo[icell].Wmax = W;
+        }
+        if (W > cinfo[icell].Wmax0)
+        {
+            cinfo[icell].Wmax0 = W;
+        }
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        vi[i] = vn[i] + v_mac[i];
+    }
+}
+
+void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell)
+{
+    Particle::Species* species = particle->species;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::ChildCell* cells = grid->cells;
+    double* vi = ip->v;
+    double* v_mac = ip->macro_v;
+    double T = ip->Temp;
+    double* x = ip->x;
+    double psai1,psai2,nrho,v_mpv,p, C_2, sigmacc,W;
+    double vn[3], sigma[6], q[3];
+    int i;
+    psai1 = cinfo[icell].psai1;
+    psai2 = cinfo[icell].psai2;
+    nrho = cinfo[icell].nrho;
+    v_mpv = 14.4306 * sqrt(T);
+
+    for (i = 0; i < 6; i++){
+        sigma[i] = cinfo[icell].sigmaave[i];
+    }
+    for (i = 0; i < 3; i++){
+        q[i] = cinfo[icell].qave[i];
+    }
+    p = (sigma[0] + sigma[1] + sigma[2]) / 3;
+  
+    while (1)
+    {
+        for (i = 0; i < 3; i++) {
+            vn[i] = random->gaussian() * v_mpv;
+        }
+        C_2 = (vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / 3;
+        sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2)
+            + (sigma[1] - p) * (vn[1] * vn[1] - C_2)
+            + (sigma[2] - p) * (vn[2] * vn[2] - C_2)
+            + 2 * sigma[3] * vn[0] * vn[1]
+            + 2 * sigma[4] * vn[0] * vn[2]
+            + 2 * sigma[5] * vn[2] * vn[1];
+        W = 1 + psai1 * sigmacc / 2 / nrho / pow(v_mpv, 4)
+            + psai2 * 2.0 / 15.0
+            * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
+            * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5);
+
+        if (W > cinfo[icell].Wmax) {
+            cinfo[icell].Wmax = W;
+        }
+        if (W > cinfo[icell].Wmax0) {
+            cinfo[icell].Wmax0 = W;
+        }
+        if (random->uniform() < (W / cinfo[icell].Wmax)) break;
+    }
+
+    for (i = 0; i < 3; i++) {
+        vi[i] = vn[i] + v_mac[i];
+    }
+}
 /* ---------------------------------------------------------------------- */
 
 void CollideVSS::EEXCHANGE_NonReactingEDisposal(Particle::OnePart *ip,
