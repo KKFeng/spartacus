@@ -39,7 +39,6 @@
 
 using namespace SPARTA_NS;
 
-
 enum{PKEEP,PINSERT,PDONE,PDISCARD,PENTRY,PEXIT,PSURF};  // several files
 enum{NONE,DISCRETE,SMOOTH};            // several files
 enum{INT,DOUBLE};                      // several files

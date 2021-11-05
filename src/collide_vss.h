@@ -96,6 +96,7 @@ class CollideVSS : public Collide {
   void EEXCHANGE_ReactingEDisposal(Particle::OnePart *,
                                    Particle::OnePart *,
                                    Particle::OnePart *);
+
   void esbgk_atom(Particle::OnePart*, double, double arr[], int);
   void sbgk_atom(Particle::OnePart*, double, double arr[], int);
   void sbgk_atom1(Particle::OnePart*, double, double arr[], int);

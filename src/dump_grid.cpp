@@ -263,7 +263,6 @@ void DumpGrid::header_binary(bigint ndump)
 
 void DumpGrid::header_item(bigint ndump)
 {
-/*
   fprintf(fp,"ITEM: TIMESTEP\n");
   fprintf(fp,BIGINT_FORMAT "\n",update->ntimestep);
   fprintf(fp,"ITEM: NUMBER OF CELLS\n");
@@ -273,7 +272,6 @@ void DumpGrid::header_item(bigint ndump)
   fprintf(fp,"%g %g\n",boxylo,boxyhi);
   fprintf(fp,"%g %g\n",boxzlo,boxzhi);
   fprintf(fp,"ITEM: CELLS %s\n",columns);
-*/
 }
 
 /* ---------------------------------------------------------------------- */
