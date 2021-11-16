@@ -1190,7 +1190,7 @@ template < int DIM, int SURF > void Update::move2()
     cellint* neigh;
     double dtremain, frac, newfrac, param, minparam, rnew, dtsurf, tc, tmp;
     double xnew[3], xhold[3], xc[3], vc[3], minxc[3], minvc[3], dx[3], x_original[3];
-    double* x, * v, * lo, * hi, * vv;
+    double* x, * v, * lo, * hi;
     Grid::ParentCell* pcell;
     Surf::Tri* tri;
     Surf::Line* line;
@@ -1283,7 +1283,6 @@ template < int DIM, int SURF > void Update::move2()
                 x_original[j] = particles[i].x[j];
             }
             x = particles[i].x;
-            vv = particles[i].v;
             v = particles[i].vv;
             exclude = -1;
             for (j = 0; j != 3; j++)
