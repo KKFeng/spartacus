@@ -1494,8 +1494,6 @@ template < int DIM, int SURF > void Update::move2()
                     }
                 }
 
-                //if (iterate == 10) exit(1);
-                //iterate++;
 
 #ifdef MOVE_DEBUG
                 if (ntimestep == MOVE_DEBUG_STEP &&
@@ -1669,75 +1667,6 @@ template < int DIM, int SURF > void Update::move2()
 
                         } // END of for loop over surfs
 
-                    // tri/line = surf that particle hit first
-
-                        /*
-                        if (cflag) {
-                            if (DIM == 3) tri = &tris[minsurf];
-                            if (DIM != 3) line = &lines[minsurf];
-
-                            // set x to collision point
-                            // if axisymmetric, set v to remapped velocity at collision pt
-
-                            x[0] = minxc[0];
-                            x[1] = minxc[1];
-                            if (DIM == 3) x[2] = minxc[2];
-                            if (DIM == 1) {
-                                v[1] = minvc[1];
-                                v[2] = minvc[2];
-                            }
-
-                            // perform surface collision using surface collision model
-                            // surface chemistry may destroy particle or create new one
-                            // must update particle's icell to current icell so that
-                            //   if jpart is created, it will be added to correct cell
-                            // if jpart, add new particle to this iteration via pstop++
-                            // tally surface statistics if requested using iorig
-
-                            ipart = &particles[i];
-                            ipart->icell = icell;
-                            dtremain *= 1.0 - minparam * frac;
-
-                            if (nsurf_tally)
-                                memcpy(&iorig, &particles[i], sizeof(Particle::OnePart));
-
-                            if (DIM == 3)
-                                jpart = surf->sc[tri->isc]->
-                                collide(ipart, tri->norm, dtremain, tri->isr, reaction);
-                            if (DIM != 3)
-                                jpart = surf->sc[line->isc]->
-                                collide(ipart, line->norm, dtremain, line->isr, reaction);
-
-                            if (jpart) {
-                                particles = particle->particles;
-                                x = particles[i].x;
-                                v = particles[i].v;
-                                jpart->flag = PSURF + 1 + minsurf;
-                                jpart->dtremain = dtremain;
-                                jpart->weight = particles[i].weight;
-                                pstop++;
-                            }
-
-                            if (nsurf_tally)
-                                for (m = 0; m < nsurf_tally; m++)
-                                    slist_active[m]->surf_tally(minsurf, icell, reaction,
-                                        &iorig, ipart, jpart);
-
-                            // nstuck = consective iterations particle is immobile
-
-                            if (minparam == 0.0) stuck_iterate++;
-                            else stuck_iterate = 0;
-
-                            // reset post-bounce xnew
-
-                            xnew[0] = x[0] + dtremain * v[0];
-                            xnew[1] = x[1] + dtremain * v[1];
-                            if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
-
-                            exclude = minsurf;
-                            nscollide_one++;
-                            */
-
 #ifdef MOVE_DEBUG
                             if (DIM == 3) {
                                 if (ntimestep == MOVE_DEBUG_STEP &&
@@ -1769,40 +1698,6 @@ template < int DIM, int SURF > void Update::move2()
                                         minparam, frac, dtremain);
                             }
 #endif
-/*
-                            // if ipart = NULL, particle discarded due to surface chem
-                            // else if particle not stuck, continue advection while loop
-                            // if stuck, mark for DISCARD, and drop out of SURF code
-
-                            if (ipart == NULL) particles[i].flag = PDISCARD;
-                            else if (stuck_iterate < MAXSTUCK) continue;
-                            else {
-                                particles[i].flag = PDISCARD;
-                                nstuck++;
-                            }
-
-                        } // END of cflag if section that performed collision
-*/
-/*
-                        if (cflag)
-                        {
-                            if (v[0] > abs(v[1]))
-                                outface_flag = XLO;
-                            else if (-v[0] > abs(v[1]))
-                                outface_flag = XHI;
-                            else if (v[1] > 0)
-                                outface_flag = YLO;
-                            else outface_flag = YHI;
-
-                            jcell= cells[icell].neigh[outface_flag];
-
-                            particles[i].Temp = 1.5*cinfo[icell].Temp- 0.5*cinfo[jcell].Temp;
-                            for (int j = 0; j < 3; j++)
-                            {
-                                particles[i].macro_v[j] = 1.5*cinfo[icell].v[j]- 0.5 * cinfo[icell].v[j];
-                            }
-                            break;
-                        }*/
 			if (cflag)
 			{
                             particles[i].Temp = cinfo[icell].Temp;
@@ -1946,22 +1841,8 @@ template < int DIM, int SURF > void Update::move2()
                 else {
                     ipart = &particles[i];
 
-                    //if (nboundary_tally)
-                    //    memcpy(&iorig, &particles[i], sizeof(Particle::OnePart));
-
                     bflag = domain->collide2(ipart, outface, icell, xnew, dtremain,
                         jpart, reaction);
-
-                    //if (jpart) {
-                    //    particles = particle->particles;
-                    //    x = particles[i].x;
-                    //    v = particles[i].v;
-                    //}
-
-                    //if (nboundary_tally)
-                    //    for (m = 0; m < nboundary_tally; m++)
-                    //        blist_active[m]->
-                    //        boundary_tally(outface, bflag, reaction, &iorig, ipart, jpart);
 
                     if (DIM == 1) {
                         xnew[0] = x[0] + dtremain * v[0];
@@ -1970,8 +1851,6 @@ template < int DIM, int SURF > void Update::move2()
                     }
 
                     if (bflag == OUTFLOW) {
-                        //particles[i].flag = PDISCARD;
-                        //nexit_one++;
 
                         particles[i].Temp = cinfo[icell].Temp;
                         for (int j = 0; j < 3; j++)
@@ -2017,17 +1896,6 @@ template < int DIM, int SURF > void Update::move2()
 
                     }
                     else if (bflag == SURFACE) {
- /*                       if (ipart == NULL) {
-                            particles[i].flag = PDISCARD;                                                      
-                        }
-                        else if (jpart) {
-                            jpart->flag = PSURF;
-                            jpart->dtremain = dtremain;
-                            jpart->weight = particles[i].weight;
-                            pstop++;
-                        }
-                        cout << "sc!!!" << endl;*/
-
                         if (outface % 2 == 0) outface++;
                         else outface--;
 
@@ -2038,23 +1906,8 @@ template < int DIM, int SURF > void Update::move2()
                         {
                             particles[i].macro_v[j] = 1.5 * cinfo[icell].v[j] - 0.5 * cinfo[jcell].v[j];
                         }
-
-                        //particles[i].Temp = cinfo[icell].Temp;
-                        //for (int j = 0; j < 3; j++)
-                        //{
-                        //    particles[i].macro_v[j] = cinfo[icell].v[j];
-                        //}
                         break;
-
-/*                        nboundary_one++;
-                        ntouch_one--;  */  // decrement here since will increment below
-
-                    }
-                    else {
-                        break;
-                        //nboundary_one++;
-                        //ntouch_one--;    // decrement here since will increment below
-                    }
+                    } else { break; }
                 }
 
                 // neighbor cell is unknown
@@ -2104,23 +1957,6 @@ template < int DIM, int SURF > void Update::move2()
             // if particle flag set, add particle to migrate list
             // if discarding, migration will delete particle
 
-            //particles[i].icell = icell;
-
-            //if (particles[i].flag != PKEEP) {
-            //    mlist[nmigrate++] = i;
-            //    if (particles[i].flag != PDISCARD) {
-            //        if (cells[icell].proc == me) {
-            //            char str[128];
-            //            sprintf(str,
-            //                "Particle %d on proc %d being sent to self "
-            //                "on step " BIGINT_FORMAT,
-            //                i, me, update->ntimestep);
-            //            error->one(FLERR, str);
-            //        }
-            //        ncomm_one++;
-            //    }
-            //}
-
 			// restore x and pflag
 
 			for (j = 0; j != 2; j++)
@@ -2133,30 +1969,8 @@ template < int DIM, int SURF > void Update::move2()
 
         // END of pstart/pstop loop advecting all particles
 
-        // if gridcut >= 0.0, check if another iteration of move is required
-        // only the case if some particle flag = PENTRY/PEXIT
-        //   in which case perform particle migration
-        // if not, move is done and final particle comm will occur in run()
-        // if iterating, reset pstart/pstop and extend migration list if necessary
 
-        if (grid->cutoff < 0.0) break;
-
-        //timer->stamp(TIME_MOVE);
-        //MPI_Allreduce(&entryexit, &any_entryexit, 1, MPI_INT, MPI_MAX, world);
-        //timer->stamp();
-
-        //if (any_entryexit) {
-        //    timer->stamp(TIME_MOVE);
-        //    pstart = comm->migrate_particles(nmigrate, mlist);
-        //    timer->stamp(TIME_COMM);
-        //    pstop = particle->nlocal;
-        //    if (pstop - pstart > maxmigrate) {
-        //        maxmigrate = pstop - pstart;
-        //        memory->destroy(mlist);
-        //        memory->create(mlist, maxmigrate, "particle:mlist");
-        //    }
-        //}
-        else break;
+        break;
 
         // END of single move/migrate iteration
 
@@ -2166,17 +1980,6 @@ template < int DIM, int SURF > void Update::move2()
 
     particle->sorted = 0;
 
-    // accumulate running totals
-
-    //niterate_running += niterate;
-    //nmove_running += nlocal;
-    //ntouch_running += ntouch_one;
-    //ncomm_running += ncomm_one;
-    //nboundary_running += nboundary_one;
-    //nexit_running += nexit_one;
-    //nscheck_running += nscheck_one;
-    //nscollide_running += nscollide_one;
-    //surf->nreact_running += surf->nreact_one;
 }
 
 /* ----------------------------------------------------------------------
