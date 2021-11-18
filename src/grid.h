@@ -146,12 +146,7 @@ class Grid : protected Pointers {
                               // entire cell volume for split cell
     double weight;            // fnum weighting for this cell
 
-    double qx_ave;          // average q for sbgk model  
-    double qy_ave;
-    double qz_ave;
-
     double nu;
-    double nu1;
     double sigmaave[6];
     double qave[3];
     double v[3];
