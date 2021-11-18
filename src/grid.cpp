@@ -28,6 +28,7 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+#include "grid_comm_macro.h"
 
 // DEBUG
 #include "update.h"
@@ -134,6 +135,8 @@ Grid::Grid(SPARTA *sparta) : Pointers(sparta)
   hashfilled = 0;
 
   copy = copymode = 0;
+
+  gridCommMacro = new GridCommMacro(sparta);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -158,6 +161,7 @@ Grid::~Grid()
   delete csplits;
   delete csubs;
   delete hash;
+  delete gridCommMacro;
 }
 
 /* ----------------------------------------------------------------------

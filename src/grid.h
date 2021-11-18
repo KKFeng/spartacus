@@ -23,7 +23,12 @@
 
 namespace SPARTA_NS {
 
+struct CommMacro {
+        double v[3];
+        double Temp;
+};
 class Grid : protected Pointers {
+  friend class GridCommMacro;
  public:
   int exist;            // 1 if grid is defined
   int exist_ghost;      // 1 if ghost cells exist
@@ -91,6 +96,8 @@ class Grid : protected Pointers {
     int proc;                 // proc that owns this cell
     int ilocal;               // index of this cell on owning proc
                               // must be correct for all ghost cells
+    int macroflag;            // only meaningful for ghost cells,
+                              // 0/1 = no/yes storage T & V from other proc
 
     cellint neigh[6];         // info on 6 neighbor cells that fully overlap faces
                               // order = XLO,XHI,YLO,YHI,ZLO,ZHI
@@ -125,10 +132,6 @@ class Grid : protected Pointers {
     int isplit;               // index into sinfo
                               // set for split and sub cells, -1 if unsplit
 
-    struct CommMacro {
-        double v[3];
-        double Temp;
-    };
     CommMacro macro;
   };
 
@@ -207,11 +210,15 @@ class Grid : protected Pointers {
   ParentLevel *plevels;       // list of parent levels, level = root = simulation box
   ParentCell *pcells;         // list of parent cell neighbors
 
+
   // restart buffers, filled by read_restart
 
   int nlocal_restart;
   cellint *id_restart;
   int *level_restart,*nsplit_restart;
+
+  class GridCommMacro* gridCommMacro;
+
 
   // methods
 
@@ -262,7 +269,8 @@ class Grid : protected Pointers {
   // grid_comm.cpp
 
   int pack_one(int, char *, int, int, int, int);
-  int unpack_one(char *, int, int, int, int sortflag=0);
+  int unpack_one(char*, int, int, int, int sortflag = 0);
+  int unpack_one_comm_list(char *, int, int, int, int sortflag=0); // grid_comm_macro.cpp
   int pack_one_adapt(char *, char *, int);
   int pack_particles(int, char *, int);
   int unpack_particles(char *, int, int);
@@ -397,6 +405,7 @@ class Grid : protected Pointers {
 
   void acquire_ghosts_all(int);
   void acquire_ghosts_near(int);
+  void acquire_macro_comm_list_near();
 
   void box_intersect(double *, double *, double *, double *,
                      double *, double *);
