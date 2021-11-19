@@ -129,6 +129,7 @@ class Grid : protected Pointers {
                               // N <= 0, neg of sub cell index (0 to Nsplit-1)
     int isplit;               // index into sinfo
                               // set for split and sub cells, -1 if unsplit
+    CommMacro macro;
   };
 
   // info specific to owned child cell
@@ -156,7 +157,7 @@ class Grid : protected Pointers {
     double qave[3];
     //double v[3];
     //double Temp;
-    CommMacro macro;
+    //CommMacro macro;
     double psai1, psai2;
     double nrho;
     double v_mpv;

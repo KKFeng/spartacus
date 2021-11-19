@@ -498,11 +498,11 @@ void Collide::computeMacro()
             ip = next[ip];
         }
         for (i = 0; i < 3; i++){
-            cinfo[icell].macro.v[i] = a[i] / np;
+            cells[icell].macro.v[i] = a[i] / np;
         }
         vsq = a[3] + a[4] + a[5];
-        cinfo[icell].macro.Temp = matom * (vsq - (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) / np) / (3 * update->boltz * (np));
-        Temp = cinfo[icell].macro.Temp;
+        cells[icell].macro.Temp = matom * (vsq - (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) / np) / (3 * update->boltz * (np));
+        Temp = cells[icell].macro.Temp;
         sqrt_R = sqrt(update->boltz / matom);
         cinfo[icell].v_mpv = sqrt_R * sqrt(Temp);
         nu = cinfo[icell].nrho * ktrefomiga2muref * pow(Temp, (1 - omegaatom));
@@ -521,19 +521,19 @@ void Collide::computeMacro()
         double b[12] = { 0 };
         while (ip >= 0)
         {
-            b[0] = pow((particles[ip].v[0] - cinfo[icell].macro.v[0]), 2);
-            b[1] = pow((particles[ip].v[1] - cinfo[icell].macro.v[1]), 2);
-            b[2] = pow((particles[ip].v[2] - cinfo[icell].macro.v[2]), 2);
+            b[0] = pow((particles[ip].v[0] - cells[icell].macro.v[0]), 2);
+            b[1] = pow((particles[ip].v[1] - cells[icell].macro.v[1]), 2);
+            b[2] = pow((particles[ip].v[2] - cells[icell].macro.v[2]), 2);
             b[3] += b[0];  // sigmaxx
             b[4] += b[1]; // sigmayy
             b[5] += b[2]; // sigmazz
             c2 = b[0] + b[1] + b[2];
-            b[6] += (particles[ip].v[0] - cinfo[icell].macro.v[0]) * (particles[ip].v[1] - cinfo[icell].macro.v[1]); // sigmaxy
-            b[7] += (particles[ip].v[0] - cinfo[icell].macro.v[0]) * (particles[ip].v[2] - cinfo[icell].macro.v[2]); // sigmaxz
-            b[8] += (particles[ip].v[2] - cinfo[icell].macro.v[2]) * (particles[ip].v[1] - cinfo[icell].macro.v[1]); // sigmayz
-            b[9] += (particles[ip].v[0] - cinfo[icell].macro.v[0]) * c2; // qx
-            b[10] += (particles[ip].v[1] - cinfo[icell].macro.v[1]) * c2; // qy
-            b[11] += (particles[ip].v[2] - cinfo[icell].macro.v[2]) * c2; // qz
+            b[6] += (particles[ip].v[0] - cells[icell].macro.v[0]) * (particles[ip].v[1] - cells[icell].macro.v[1]); // sigmaxy
+            b[7] += (particles[ip].v[0] - cells[icell].macro.v[0]) * (particles[ip].v[2] - cells[icell].macro.v[2]); // sigmaxz
+            b[8] += (particles[ip].v[2] - cells[icell].macro.v[2]) * (particles[ip].v[1] - cells[icell].macro.v[1]); // sigmayz
+            b[9] += (particles[ip].v[0] - cells[icell].macro.v[0]) * c2; // qx
+            b[10] += (particles[ip].v[1] - cells[icell].macro.v[1]) * c2; // qy
+            b[11] += (particles[ip].v[2] - cells[icell].macro.v[2]) * c2; // qz
             ip = next[ip];
         }
         sigma_scale = 2 * update->fnum * np / (np - 1) / (2 + dt_nu * Pc) / volume;
@@ -638,7 +638,7 @@ template < int NEARCP > void Collide::collisions_one()
 
   // loop over cells I own
 
-  Grid::ChildInfo *cinfo = grid->cinfo;
+  Grid::ChildInfo * cells = grid->cinfo;
 
   Grid::ChildCell* cells = grid->cells;
   Particle::OnePart *particles = particle->particles;
@@ -672,7 +672,7 @@ template < int NEARCP > void Collide::collisions_one()
 	
     if (ubgkflag)
     {
-        double Temp = cinfo[icell].macro.Temp;
+        double Temp = cells[icell].macro.Temp;
         bgk_attempt = attempt_bgk(icell);
         bgk_nattempt = static_cast<int> (bgk_attempt + (random->uniform()));
 
@@ -725,9 +725,9 @@ template < int NEARCP > void Collide::collisions_one()
         ip = cinfo[icell].first;
         double TempScale = sqrt(Temp / Temp_);
         while (ip >= 0) {
-            particles[ip].v[0] = (particles[ip].v[0] - vx_) * TempScale + cinfo[icell].macro.v[0];
-            particles[ip].v[1] = (particles[ip].v[1] - vy_) * TempScale + cinfo[icell].macro.v[1];
-            particles[ip].v[2] = (particles[ip].v[2] - vz_) * TempScale + cinfo[icell].macro.v[2];
+            particles[ip].v[0] = (particles[ip].v[0] - vx_) * TempScale + cells[icell].macro.v[0];
+            particles[ip].v[1] = (particles[ip].v[1] - vy_) * TempScale + cells[icell].macro.v[1];
+            particles[ip].v[2] = (particles[ip].v[2] - vz_) * TempScale + cells[icell].macro.v[2];
             ip = next[ip];
         }// conservation end
 
