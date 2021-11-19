@@ -1237,10 +1237,10 @@ template < int DIM, int SURF > void Update::move2()
     for (int i = 0; i < nlocal; i++)
     {
         icell = particles[i].icell;
-        particles[i].Temp = cells[icell].macro.Temp;
+        particles[i].Temp = cinfo[icell].macro.Temp;
         for (int j = 0; j < 3; j++)
         {
-            particles[i].macro_v[j] = cells[icell].macro.v[j];
+            particles[i].macro_v[j] = cinfo[icell].macro.v[j];
         }
     }
 
@@ -1700,10 +1700,10 @@ template < int DIM, int SURF > void Update::move2()
 #endif
 			if (cflag)
 			{
-                            particles[i].Temp = cells[icell].macro.Temp;
+                            particles[i].Temp = cinfo[icell].macro.Temp;
                             for (int j = 0; j < 3; j++)
                             {
-                                particles[i].macro_v[j] = cells[icell].macro.v[j];
+                                particles[i].macro_v[j] = cinfo[icell].macro.v[j];
                             }
                             break;
 			}
@@ -1743,19 +1743,19 @@ template < int DIM, int SURF > void Update::move2()
                         else outface_flag--;
                         jcell= cells[icell].neigh[outface_flag];
 
-                        particles[i].Temp = 2*cells[icell].macro.Temp- cells[jcell].macro.Temp;
+                        particles[i].Temp = 2*cinfo[icell].macro.Temp- cinfo[jcell].macro.Temp;
                         for (int j = 0; j < 3; j++)
                         {
-                            particles[i].macro_v[j] = 2 * cells[icell].macro.v[j] - cells[jcell].macro.v[j];
+                            particles[i].macro_v[j] = 2 * cinfo[icell].macro.v[j] - cinfo[jcell].macro.v[j];
                         }
                         break;
                     }
 
 
-                    particles[i].Temp = cells[icell].macro.Temp;
+                    particles[i].Temp = cinfo[icell].macro.Temp;
                     for (int j = 0; j < 3; j++)
                     {
-                        particles[i].macro_v[j] = cells[icell].macro.v[j];
+                        particles[i].macro_v[j] = cinfo[icell].macro.v[j];
                     }
                     break;
                 }
@@ -1852,10 +1852,10 @@ template < int DIM, int SURF > void Update::move2()
 
                     if (bflag == OUTFLOW) {
 
-                        particles[i].Temp = cells[icell].macro.Temp;
+                        particles[i].Temp = cinfo[icell].macro.Temp;
                         for (int j = 0; j < 3; j++)
                         {
-                            particles[i].macro_v[j] = cells[icell].macro.v[j];
+                            particles[i].macro_v[j] = cinfo[icell].macro.v[j];
                         }
                         break;
 
@@ -1901,10 +1901,10 @@ template < int DIM, int SURF > void Update::move2()
 
                         jcell = cells[icell].neigh[outface];
                         
-                        particles[i].Temp = 1.5 * cells[icell].macro.Temp - 0.5 * cells[jcell].macro.Temp;
+                        particles[i].Temp = 1.5 * cinfo[icell].macro.Temp - 0.5 * cinfo[jcell].macro.Temp;
                         for (int j = 0; j < 3; j++)
                         {
-                            particles[i].macro_v[j] = 1.5 * cells[icell].macro.v[j] - 0.5 * cells[jcell].macro.v[j];
+                            particles[i].macro_v[j] = 1.5 * cinfo[icell].macro.v[j] - 0.5 * cinfo[jcell].macro.v[j];
                         }
                         break;
                     } else { break; }
