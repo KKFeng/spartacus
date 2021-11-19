@@ -24,11 +24,11 @@
 namespace SPARTA_NS {
 
 struct CommMacro {
-    double v[3];
-    double Temp;
+        double v[3];
+        double Temp;
 };
-
 class Grid : protected Pointers {
+  friend class GridCommMacro;
  public:
   int exist;            // 1 if grid is defined
   int exist_ghost;      // 1 if ghost cells exist
@@ -96,6 +96,8 @@ class Grid : protected Pointers {
     int proc;                 // proc that owns this cell
     int ilocal;               // index of this cell on owning proc
                               // must be correct for all ghost cells
+    int macroflag;            // only meaningful for ghost cells,
+                              // 0/1 = no/yes storage T & V from other proc
 
     cellint neigh[6];         // info on 6 neighbor cells that fully overlap faces
                               // order = XLO,XHI,YLO,YHI,ZLO,ZHI
@@ -129,6 +131,7 @@ class Grid : protected Pointers {
                               // N <= 0, neg of sub cell index (0 to Nsplit-1)
     int isplit;               // index into sinfo
                               // set for split and sub cells, -1 if unsplit
+
     CommMacro macro;
   };
 
@@ -155,8 +158,6 @@ class Grid : protected Pointers {
     double nu;
     double sigmaave[6];
     double qave[3];
-    //double v[3];
-    //double Temp;
     //CommMacro macro;
     double psai1, psai2;
     double nrho;
@@ -210,11 +211,15 @@ class Grid : protected Pointers {
   ParentLevel *plevels;       // list of parent levels, level = root = simulation box
   ParentCell *pcells;         // list of parent cell neighbors
 
+
   // restart buffers, filled by read_restart
 
   int nlocal_restart;
   cellint *id_restart;
   int *level_restart,*nsplit_restart;
+
+  class GridCommMacro* gridCommMacro;
+
 
   // methods
 

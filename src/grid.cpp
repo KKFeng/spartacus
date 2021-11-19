@@ -28,6 +28,7 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+#include "grid_comm_macro.h"
 
 // DEBUG
 #include "update.h"
@@ -134,6 +135,8 @@ Grid::Grid(SPARTA *sparta) : Pointers(sparta)
   hashfilled = 0;
 
   copy = copymode = 0;
+
+  gridCommMacro = new GridCommMacro(sparta);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -158,6 +161,7 @@ Grid::~Grid()
   delete csplits;
   delete csubs;
   delete hash;
+  delete gridCommMacro;
 }
 
 /* ----------------------------------------------------------------------
@@ -237,6 +241,8 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
   c->csurfs = NULL;
   c->nsplit = 1;
   c->isplit = -1;
+  //c->macro.Temp = 0.0;
+  //for (int i = 0; i < 3; i++) c->macro.v[i] = 0;
   
   ChildInfo *ci = &cinfo[nlocal];
   ci->count = 0;
@@ -258,9 +264,7 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
 
   for (int i = 0; i < 6; i++) ci->sigmaave[i] = 0;
   for (int i = 0; i < 3; i++) ci->qave[i] = 0;
-  for (int i = 0; i < 3; i++) c->macro.v[i] = 0;
 
-  c->macro.Temp = 0.0;
   ci->nu = 0;
   ci->psai1 = 0;
   ci->psai2 = 0;
@@ -428,6 +432,9 @@ void Grid::acquire_ghosts(int surfflag)
     surf->hash->clear();
     surf->hashfilled = 0;
   }
+  if (collide)
+  grid->gridCommMacro->acquire_macro_comm_list_near(); // plan for routine macro comm
+
 }
 
 /* ----------------------------------------------------------------------

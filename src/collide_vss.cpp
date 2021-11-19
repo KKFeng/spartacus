@@ -660,6 +660,7 @@ void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell)
     }
     for (int i = 0; i < 3; i++) vi[i] = vn[i] + v_mac[i];
 }
+
 /* ---------------------------------------------------------------------- */
 
 void CollideVSS::EEXCHANGE_NonReactingEDisposal(Particle::OnePart *ip,
