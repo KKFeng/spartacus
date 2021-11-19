@@ -215,7 +215,6 @@ void GridCommMacro::acquire_macro_comm_list_near()
     int j, oflag, lastproc, nsurf_hold;
 
     nsend = 0;
-    int sendsize = 0;
     memset(nsendeachproc, 0, sizeof(int) * nprocs);
     for (int icell = 0; icell < nlocal; icell++) {
         if (cells[icell].nsplit <= 0) continue;
@@ -229,12 +228,6 @@ void GridCommMacro::acquire_macro_comm_list_near()
             if (boxall[j].proc == lastproc) continue;
             lastproc = boxall[j].proc;
             nsendeachproc[lastproc] += 1;
-            //if (oflag == 2) {
-            //    nsurf_hold = cells[icell].nsurf;
-            //    cells[icell].nsurf = -1;
-            //}
-            sendsize += grid->pack_one(icell, NULL, 0, 0, 0, 0);
-            //if (oflag == 2) cells[icell].nsurf = nsurf_hold;
             nsend++;
         }
     }
@@ -255,33 +248,16 @@ void GridCommMacro::acquire_macro_comm_list_near()
     memory->create(sendcelllist, ncellsendall, "gridCommMacro : sendcelllist");
     memory->destroy(sbuf);
     memory->create(sbuf, ncellsendall * sizeof(CommMacro), "gridCommMacro : sbuf");
-    int sz = sizeof(CommMacro);
-    for (int i = 0; i < ncellsendall; ++i) {
-        memcpy(sbuf + i * sizeof(CommMacro), &grid->cells[sendcelllist[i]].id, sizeof(cellint));
-    }
+
 
     int* sf = new int[nprocs]; //sendfirst
+    sf[0] = 0;
     for (int i = 1; i < nprocs; ++i) {
         sf[i] = sf[i - 1] + nsendeachproc[i - 1];
     }
+
     memcpy(sendfirst, sf, sizeof(int)* nprocs);
-    // 2021年11月18日22:15:47 以下为需要更改的位置
 
-    //char* sbuf;
-    //memory->create(sbuf, sendsize, "grid:sbuf");
-    //memset(sbuf, 0, sendsize);
-
-    //int* proclist, * sizelist;
-    //memory->create(proclist, nsend, "grid:proclist");
-    //memory->create(sizelist, nsend, "grid:sizelist");
-
-    // on 2nd pass over local cells, fill the send buf
-    // use lastproc to insure a cell only overlaps once per other proc
-    // if oflag = 2 = my cell just touches box,
-    // so flag grid cell as EMPTY ghost by setting nsurf = -1
-
-    //nsend = 0;
-    //sendsize = 0;
     for (int icell = 0; icell < nlocal; icell++) {
         if (cells[icell].nsplit <= 0) continue;
         lo = cells[icell].lo;
@@ -294,16 +270,23 @@ void GridCommMacro::acquire_macro_comm_list_near()
             if (boxall[j].proc == lastproc) continue;
             lastproc = boxall[j].proc;
             sendcelllist[sf[lastproc]++] = icell;
-            //if (oflag == 2) {
-            //    nsurf_hold = cells[icell].nsurf;
-            //    cells[icell].nsurf = -1;
-            //}
-            //sizelist[nsend] = grid->pack_one(icell, &sbuf[sendsize], 0, 0, 0, 1);
-            //if (oflag == 2) cells[icell].nsurf = nsurf_hold;
-            //proclist[nsend] = lastproc;
-            //sendsize += sizelist[nsend];
-            //nsend++;
         }
+    }
+    
+    if (me == 0) {
+        fprintf(screen, "ncellsendall: %d\n", ncellsendall);
+        fflush(screen);
+        fprintf(screen, "sendcelllist: %d,%d,%d,%d,%d,%d\n",
+            sendcelllist[0], sendcelllist[1], sendcelllist[2], 
+            sendcelllist[3], sendcelllist[4], sendcelllist[5] );
+        fflush(screen);
+    }
+
+
+    for (int i = 0; i < ncellsendall; ++i) {
+        if (me == 0)
+        fprintf(screen, "cellId: %d\n", grid->cells[sendcelllist[i]].id);
+        memcpy(sbuf + i * sizeof(CommMacro), &(grid->cells[sendcelllist[i]].id), sizeof(cellint));
     }
 
     //DEBUG
@@ -320,18 +303,13 @@ void GridCommMacro::acquire_macro_comm_list_near()
 
     // perform irregular communication of list of ghost cells
 
-    //Irregular* irregular = new Irregular(sparta);
-    //int recvsize;
     nrecvproc = irregular->create_data_variable(nsendproc, proclist, sizelist,
         recvsize, 1); //must sort
     nrecvcell = recvsize / sizeof(CommMacro);
-    //char* rbuf;
     memory->create(rbuf, recvsize, "gridCommMacro:rbuf");
     memset(rbuf, 0, recvsize);
 
     irregular->exchange_variable(sbuf, sizelist, rbuf);
-    //cellint* recvidlist;
-    //memory->create(recvidlist, nrecvcell * sizeof(cellint), "gridCommMacro:recvidlist");
     for (int i = 0; i < ncellsendall; ++i) {
         cellint id = 0;
         memcpy(&id, rbuf + i * sizeof(CommMacro), sizeof(cellint));
@@ -343,315 +321,5 @@ void GridCommMacro::acquire_macro_comm_list_near()
         }
            
     }
-    //delete irregular;
-
-    // unpack received grid cells as ghost cells
-
-    //int offset = 0;
-    //for (i = 0; i < nrecvproc; i++)
-    //    offset += grid->unpack_one(&rbuf[offset], 0, 0, 0);
-
-    // more clean up
-
-    //memory->destroy(proclist);
-    //memory->destroy(sizelist);
-    //memory->destroy(sbuf);
-    //memory->destroy(rbuf);
-    
-
-
-    // create send buf and auxiliary irregular comm vectors
-    //char* sbuf;
-    //memory->create(sbuf, sendsize, "grid:sbuf");
-    //memset(sbuf, 0, sendsize);
-
-    //int* proclist, * sizelist;
-    //memory->create(proclist, nsend, "grid:proclist");
-    //memory->create(sizelist, nsend, "grid:sizelist");
-
-    //// on 2nd pass over local cells, fill the send buf
-    //// use lastproc to insure a cell only overlaps once per other proc
-    //// if oflag = 2 = my cell just touches box,
-    //// so flag grid cell as EMPTY ghost by setting nsurf = -1
-
-    //nsend = 0;
-    //sendsize = 0;
-    //for (int icell = 0; icell < nlocal; icell++) {
-    //    if (cells[icell].nsplit <= 0) continue;
-    //    lo = cells[icell].lo;
-    //    hi = cells[icell].hi;
-    //    lastproc = -1;
-    //    for (i = 0; i < nlist; i++) {
-    //        j = list[i];
-    //        oflag = grid->box_overlap(lo, hi, boxall[j].lo, boxall[j].hi);
-    //        if (oflag != 1) continue;
-    //        if (boxall[j].proc == lastproc) continue;
-    //        lastproc = boxall[j].proc;
-    //        sendcelllist[sf[lastproc]++] = icell;
-    //        //if (oflag == 2) {
-    //        //    nsurf_hold = cells[icell].nsurf;
-    //        //    cells[icell].nsurf = -1;
-    //        //}
-    //        //sizelist[nsend] = grid->pack_one(icell, &sbuf[sendsize], 0, 0, 0, 1);
-    //        //if (oflag == 2) cells[icell].nsurf = nsurf_hold;
-    //        //proclist[nsend] = lastproc;
-    //        //sendsize += sizelist[nsend];
-    //        nsend++;
-    //    }
-    //}
-    //for (int i = 0; i < nprocs - 1; ++i) {
-    //    if (sf[i] != sendfirst[i + 1])
-    //        error->one(FLERR, "sendcelllist set error!");
-    //}
-    //delete[] sf; 
-    //// clean up
-
-    //memory->destroy(list);
-    //delete[] boxall;
-
-    //// perform irregular communication of list of ghost cells
-
-    //Irregular* irregular = new Irregular(sparta);
-    //int recvsize;
-    //int nrecv = irregular->create_data_variable(nsend, proclist, sizelist,
-    //    recvsize, 1); //must sort
-
-    //char* rbuf;
-    //memory->create(rbuf, recvsize, "grid:rbuf");
-    //memset(rbuf, 0, recvsize);
-
-    //irregular->exchange_variable(sbuf, sizelist, rbuf);
-    //delete irregular;
-
-    //// unpack received grid cells as ghost cells
-
-    //int offset = 0;
-    //for (i = 0; i < nrecv; i++)
-    //    offset += grid->unpack_one(&rbuf[offset], 0, 0, 0);
-
-    //// more clean up
-
-    //memory->destroy(proclist);
-    //memory->destroy(sizelist);
-    //memory->destroy(sbuf);
-    //memory->destroy(rbuf);
 
 }
-
-//int Grid::unpack_one_comm_list(char* buf,
-//    int ownflag, int partflag, int surfflag, int sortflag)
-//{
-//    char* ptr = buf;
-//
-//    // unpack child cell as owned or ghost
-//
-//    int icell;
-//    if (ownflag) icell = nlocal;
-//    else icell = nlocal + nghost;
-//    grow_cells(1, ownflag);
-//    if (ownflag) nlocal++;
-//    else nghost++;
-//
-//    memcpy(&cells[icell], ptr, sizeof(ChildCell));
-//    ptr += sizeof(ChildCell);
-//    ptr = ROUNDUP(ptr);
-//
-//    if (ownflag) {
-//        cells[icell].proc = me;
-//        cells[icell].ilocal = icell;
-//    }
-//
-//    // no surfs or any other info
-//    // ditto for EMPTY ghost with nsurf < 0
-//    // reset other fields for ghost cell (csurfs, nsplit, isplit)
-//
-//    if (!surfflag || cells[icell].nsurf < 0) {
-//        cells[icell].csurfs = NULL;
-//        cells[icell].nsplit = 1;
-//        cells[icell].isplit = -1;
-//        return ptr - buf;
-//    }
-//
-//    // if nsurfs, unpack different info for explicit vs implicit
-//    // explicit all: list of csurf indices
-//    // implicit: add entire list of lines or triangles
-//    // explicit distributed:
-//    //    list of lines or triangles
-//    //    check hash each to see if can skip b/c already have it
-//    //    add new surfs to hash
-//
-//    int nsurf = cells[icell].nsurf;
-//    if (nsurf) {
-//        cells[icell].csurfs = csurfs->vget();
-//
-//        // explicit all surfs
-//
-//        if (!surf->implicit && !surf->distributed) {
-//            memcpy(cells[icell].csurfs, ptr, nsurf * sizeof(surfint));
-//            ptr += nsurf * sizeof(surfint);
-//            ptr = ROUNDUP(ptr);
-//
-//            // implicit surfs
-//
-//        }
-//        else if (surf->implicit) {
-//            if (domain->dimension == 2) {
-//                int sizesurf = sizeof(Surf::Line);
-//                surfint* csurfs = cells[icell].csurfs;
-//                for (int m = 0; m < nsurf; m++) {
-//                    Surf::Line* line = (Surf::Line*)ptr;
-//                    surf->add_line_copy(ownflag, line);
-//                    if (ownflag) csurfs[m] = surf->nlocal - 1;
-//                    else csurfs[m] = surf->nlocal + surf->nghost - 1;
-//                    ptr += sizesurf;
-//                    ptr = ROUNDUP(ptr);
-//                }
-//            }
-//            else {
-//                int sizesurf = sizeof(Surf::Tri);
-//                surfint* csurfs = cells[icell].csurfs;
-//                for (int m = 0; m < nsurf; m++) {
-//                    Surf::Tri* tri = (Surf::Tri*)ptr;
-//                    surf->add_tri_copy(ownflag, tri);
-//                    if (ownflag) csurfs[m] = surf->nlocal - 1;
-//                    else csurfs[m] = surf->nlocal + surf->nghost - 1;
-//                    ptr += sizesurf;
-//                    ptr = ROUNDUP(ptr);
-//                }
-//            }
-//
-//            // explicit distributed surfs
-//
-//        }
-//        else {
-//            Surf::MySurfHash* shash = surf->hash;
-//
-//            if (domain->dimension == 2) {
-//                int sizesurf = sizeof(Surf::Line);
-//                surfint* csurfs = cells[icell].csurfs;
-//                for (int m = 0; m < nsurf; m++) {
-//                    Surf::Line* line = (Surf::Line*)ptr;
-//                    if (shash->find(line->id) == shash->end()) {
-//                        surf->add_line_copy(ownflag, line);
-//                        if (ownflag) csurfs[m] = surf->nlocal - 1;
-//                        else csurfs[m] = surf->nlocal + surf->nghost - 1;
-//                        (*shash)[line->id] = csurfs[m];
-//                    }
-//                    else csurfs[m] = (*shash)[line->id];
-//                    ptr += sizesurf;
-//                    ptr = ROUNDUP(ptr);
-//                }
-//            }
-//            else {
-//                int sizesurf = sizeof(Surf::Tri);
-//                surfint* csurfs = cells[icell].csurfs;
-//                for (int m = 0; m < nsurf; m++) {
-//                    Surf::Tri* tri = (Surf::Tri*)ptr;
-//                    if (shash->find(tri->id) == shash->end()) {
-//                        surf->add_tri_copy(ownflag, tri);
-//                        if (ownflag) csurfs[m] = surf->nlocal - 1;
-//                        else csurfs[m] = surf->nlocal + surf->nghost - 1;
-//                        (*shash)[tri->id] = csurfs[m];
-//                    }
-//                    else csurfs[m] = (*shash)[tri->id];
-//                    ptr += sizesurf;
-//                    ptr = ROUNDUP(ptr);
-//                }
-//            }
-//        }
-//
-//        csurfs->vgot(nsurf);
-//    }
-//
-//    if (ownflag) {
-//        memcpy(&cinfo[icell], ptr, sizeof(ChildInfo));
-//        ptr += sizeof(ChildInfo);
-//        ptr = ROUNDUP(ptr);
-//    }
-//
-//    // if split cell, unpack sinfo and sinfo.csplits and sinfo.csubs
-//    // create Nsplit sub cells
-//    // use sinfo.csubs to set cells.ilocal for new sub cells
-//    // create new csub for new sub cell indices
-//    // if ownflag, also unpack volumes from sub cells themselves
-//
-//    if (cells[icell].nsplit > 1) {
-//        int isplit;
-//        if (ownflag) isplit = nsplitlocal;
-//        else isplit = nsplitlocal + nsplitghost;
-//        cells[icell].isplit = isplit;
-//        add_split_cell(ownflag);
-//        memcpy(&sinfo[isplit], ptr, sizeof(SplitInfo));
-//        ptr += sizeof(SplitInfo);
-//        ptr = ROUNDUP(ptr);
-//
-//        sinfo[isplit].icell = icell;
-//        int nsurf = cells[icell].nsurf;
-//        sinfo[isplit].csplits = csplits->vget();
-//        memcpy(sinfo[isplit].csplits, ptr, nsurf * sizeof(int));
-//        csplits->vgot(nsurf);
-//        ptr += nsurf * sizeof(int);
-//        ptr = ROUNDUP(ptr);
-//
-//        int nsplit = cells[icell].nsplit;
-//        sinfo[isplit].csubs = csubs->vget();
-//        memcpy(sinfo[isplit].csubs, ptr, nsplit * sizeof(int));
-//        csubs->vgot(nsplit);
-//        ptr += nsplit * sizeof(int);
-//        ptr = ROUNDUP(ptr);
-//
-//        double* dptr;
-//        if (ownflag) {
-//            dptr = (double*)ptr;
-//            ptr += nsplit * sizeof(double);
-//        }
-//
-//        int isub;
-//        for (int i = 0; i < nsplit; i++) {
-//            if (ownflag) isub = nlocal;
-//            else isub = nlocal + nghost;
-//            add_sub_cell(icell, ownflag);
-//            cells[isub].ilocal = sinfo[isplit].csubs[i];
-//            cells[isub].nsplit = -i;
-//            if (ownflag) cinfo[isub].volume = dptr[i];
-//            sinfo[isplit].csubs[i] = isub;
-//        }
-//
-//    }
-//    else {
-//        if (ownflag) nunsplitlocal++;
-//        else nunsplitghost++;
-//    }
-//
-//    // unpack collision and fix info for new grid cell
-//
-//    if (ownflag) {
-//        if (collide) {
-//            ptr += collide->unpack_grid_one(icell, ptr);
-//            ptr = ROUNDUP(ptr);
-//        }
-//        if (modify->n_pergrid) {
-//            ptr += modify->unpack_grid_one(icell, ptr);
-//            ptr = ROUNDUP(ptr);
-//        }
-//    }
-//
-//    // unpack particles, for unsplit cell or split cell
-//
-//    if (!partflag) return ptr - buf;
-//
-//    ptr += unpack_particles(ptr, icell, sortflag);
-//
-//    // unpack particles of sub cells
-//
-//    if (cells[icell].nsplit > 1) {
-//        int isplit = cells[icell].isplit;
-//        int nsplit = cells[icell].nsplit;
-//        for (int i = 0; i < nsplit; i++) {
-//            int m = sinfo[isplit].csubs[i];
-//            ptr += unpack_particles(ptr, m, sortflag);
-//        }
-//    }
-//
-//    return ptr - buf;
-//}

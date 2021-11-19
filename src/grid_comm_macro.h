@@ -25,13 +25,14 @@ namespace SPARTA_NS {
 
 class GridCommMacro : protected Pointers {
 public:
+
     GridCommMacro(class SPARTA*);
     ~GridCommMacro();
     void runComm();
     void acquire_macro_comm_list_near();
     
     int nprocs, me;
-        
+
     // sending plan
     int nsendproc;
     int * proclist, // size = nsendproc 
@@ -39,7 +40,7 @@ public:
         * sizelist;// size = nsendproc
     int ncellsendall, 
         * sendcelllist, // size = ncellsendall
-        * sendfirst;    // size = nprocs, don't change it each runComm()
+        * sendfirst;    // size = nprocs, never change it when runComm()
 
     // receiving plan
     int nrecvproc, nrecvcell, recvsize, * recvicelllist;
@@ -47,12 +48,6 @@ public:
     // buffer & Irregular
     char* rbuf, * sbuf;
     class Irregular* irregular;
-
-
-
-
-
-
 };
 
 
