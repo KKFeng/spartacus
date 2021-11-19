@@ -23,6 +23,11 @@
 
 namespace SPARTA_NS {
 
+struct CommMacro {
+    double v[3];
+    double Temp;
+};
+
 class Grid : protected Pointers {
  public:
   int exist;            // 1 if grid is defined
@@ -149,8 +154,9 @@ class Grid : protected Pointers {
     double nu;
     double sigmaave[6];
     double qave[3];
-    double v[3];
-    double Temp;
+    //double v[3];
+    //double Temp;
+    CommMacro macro;
     double psai1, psai2;
     double nrho;
     double v_mpv;

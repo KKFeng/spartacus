@@ -609,51 +609,56 @@ void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell)
     double* v_mac = ip->macro_v;
     double T = ip->Temp;
     double* x = ip->x;
-    double psai1,psai2,nrho,v_mpv,p, C_2, sigmacc,W;
-    double vn[3], sigma[6], q[3];
-    int i;
-    psai1 = cinfo[icell].psai1;
-    psai2 = cinfo[icell].psai2;
-    nrho = cinfo[icell].nrho;
-    v_mpv = 14.4306 * sqrt(T);
 
-    for (i = 0; i < 6; i++){
-        sigma[i] = cinfo[icell].sigmaave[i];
-    }
-    for (i = 0; i < 3; i++){
-        q[i] = cinfo[icell].qave[i];
-    }
-    p = (sigma[0] + sigma[1] + sigma[2]) / 3;
-  
-    while (1)
+    double vn[3];
+    double psai1 = cinfo[icell].psai1;
+    double psai2 = cinfo[icell].psai2;
+    double nrho = cinfo[icell].nrho;
+
+    double v_mpv = 14.4306 * sqrt(T);
+    double sigma[6], q[3];
+    for (int i = 0; i < 6; i++) sigma[i] = cinfo[icell].sigmaave[i];
+    for (int i = 0; i < 3; i++) q[i] = cinfo[icell].qave[i];
+    for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * v_mpv;
+    double p = (sigma[0] + sigma[1] + sigma[2]) / 3;
+    double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
+    double sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2 / 3)
+        + (sigma[1] - p) * (vn[1] * vn[1] - C_2 / 3)
+        + (sigma[2] - p) * (vn[2] * vn[2] - C_2 / 3)
+        + 2 * sigma[3] * vn[0] * vn[1]
+        + 2 * sigma[4] * vn[0] * vn[2]
+        + 2 * sigma[5] * vn[2] * vn[1];
+
+    double W = 1 + psai1 * sigmacc / 2 / nrho / pow(v_mpv, 4)
+        + psai2 * 2.0 / 15.0
+        * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
+        * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5.0);
+
+    if (W > cinfo[icell].Wmax) cinfo[icell].Wmax = W;
+    if (W > cinfo[icell].Wmax0) cinfo[icell].Wmax0 = W;
+
+    while (random->uniform() > W / cinfo[icell].Wmax)
     {
-        for (i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++) {
             vn[i] = random->gaussian() * v_mpv;
         }
-        C_2 = (vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / 3;
-        sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2)
-            + (sigma[1] - p) * (vn[1] * vn[1] - C_2)
-            + (sigma[2] - p) * (vn[2] * vn[2] - C_2)
+        C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
+        sigmacc = (sigma[0] - p) * (vn[0] * vn[0] - C_2 / 3)
+            + (sigma[1] - p) * (vn[1] * vn[1] - C_2 / 3)
+            + (sigma[2] - p) * (vn[2] * vn[2] - C_2 / 3)
             + 2 * sigma[3] * vn[0] * vn[1]
             + 2 * sigma[4] * vn[0] * vn[2]
             + 2 * sigma[5] * vn[2] * vn[1];
+
         W = 1 + psai1 * sigmacc / 2 / nrho / pow(v_mpv, 4)
             + psai2 * 2.0 / 15.0
             * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
             * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5);
 
-        if (W > cinfo[icell].Wmax) {
-            cinfo[icell].Wmax = W;
-        }
-        if (W > cinfo[icell].Wmax0) {
-            cinfo[icell].Wmax0 = W;
-        }
-        if (random->uniform() < (W / cinfo[icell].Wmax)) break;
+        if (W > cinfo[icell].Wmax) cinfo[icell].Wmax = W;
+        if (W > cinfo[icell].Wmax0) cinfo[icell].Wmax0 = W;
     }
-
-    for (i = 0; i < 3; i++) {
-        vi[i] = vn[i] + v_mac[i];
-    }
+    for (int i = 0; i < 3; i++) vi[i] = vn[i] + v_mac[i];
 }
 /* ---------------------------------------------------------------------- */
 
