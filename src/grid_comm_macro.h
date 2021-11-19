@@ -33,11 +33,16 @@ public:
     int nprocs, me;
         
     // sending plan
-    int nsendproc, * proclist, * nsendeachproc, * sizelist;
-    int ncellsendall, * sendcelllist, * sendfirst;
+    int nsendproc;
+    int * proclist, // size = nsendproc 
+        * nsendeachproc, //size = nprocs
+        * sizelist;// size = nsendproc
+    int ncellsendall, 
+        * sendcelllist, // size = ncellsendall
+        * sendfirst;    // size = nprocs, don't change it each runComm()
 
     // receiving plan
-    int nrecvproc, nrecvcell, * recvicelllist;
+    int nrecvproc, nrecvcell, recvsize, * recvicelllist;
 
     // buffer & Irregular
     char* rbuf, * sbuf;
