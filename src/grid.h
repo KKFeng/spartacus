@@ -269,8 +269,7 @@ class Grid : protected Pointers {
   // grid_comm.cpp
 
   int pack_one(int, char *, int, int, int, int);
-  int unpack_one(char*, int, int, int, int sortflag = 0);
-  int unpack_one_comm_list(char *, int, int, int, int sortflag=0); // grid_comm_macro.cpp
+  int unpack_one(char *, int, int, int, int sortflag=0);
   int pack_one_adapt(char *, char *, int);
   int pack_particles(int, char *, int);
   int unpack_particles(char *, int, int);
@@ -405,7 +404,6 @@ class Grid : protected Pointers {
 
   void acquire_ghosts_all(int);
   void acquire_ghosts_near(int);
-  void acquire_macro_comm_list_near();
 
   void box_intersect(double *, double *, double *, double *,
                      double *, double *);
