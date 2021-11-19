@@ -498,11 +498,11 @@ void Collide::computeMacro()
             ip = next[ip];
         }
         for (i = 0; i < 3; i++){
-            cells[icell].macro.v[i] = a[i] / np;
+            cinfo[icell].macro.v[i] = a[i] / np;
         }
         vsq = a[3] + a[4] + a[5];
-        cells[icell].macro.Temp = matom * (vsq - (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) / np) / (3 * update->boltz * (np));
-        Temp = cells[icell].macro.Temp;
+        cinfo[icell].macro.Temp = matom * (vsq - (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) / np) / (3 * update->boltz * (np));
+        Temp = cinfo[icell].macro.Temp;
         sqrt_R = sqrt(update->boltz / matom);
         cinfo[icell].v_mpv = sqrt_R * sqrt(Temp);
         nu = cinfo[icell].nrho * ktrefomiga2muref * pow(Temp, (1 - omegaatom));
@@ -522,7 +522,7 @@ void Collide::computeMacro()
         while (ip >= 0)
         {
             double* v = particles[ip].v;
-            double* cellv = cells->macro.v;
+            double* cellv = cinfo->macro.v;
             b[0] = (v[0] - cellv[0]) * (v[0] - cellv[0]);
             b[1] = (v[1] - cellv[1]) * (v[1] - cellv[1]);
             b[2] = (v[2] - cellv[2]) * (v[2] - cellv[2]);
@@ -674,7 +674,7 @@ template < int NEARCP > void Collide::collisions_one()
 	
     if (ubgkflag)
     {
-        double Temp = cells[icell].macro.Temp;
+        double Temp = cinfo[icell].macro.Temp;
         bgk_attempt = attempt_bgk(icell);
         bgk_nattempt = static_cast<int> (bgk_attempt + (random->uniform()));
 
@@ -728,7 +728,7 @@ template < int NEARCP > void Collide::collisions_one()
         double TempScale = sqrt(Temp / Temp_);
         while (ip >= 0) {
             double* v = particles[ip].v;
-            double* cellv = cells->macro.v;
+            double* cellv = cinfo->macro.v;
             v[0] = (v[0] - vx_) * TempScale + cellv[0];
             v[1] = (v[1] - vy_) * TempScale + cellv[1];
             v[2] = (v[2] - vz_) * TempScale + cellv[2];
