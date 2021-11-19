@@ -638,7 +638,7 @@ template < int NEARCP > void Collide::collisions_one()
 
   // loop over cells I own
 
-  Grid::ChildInfo * cells = grid->cinfo;
+  Grid::ChildInfo * cinfo = grid->cinfo;
 
   Grid::ChildCell* cells = grid->cells;
   Particle::OnePart *particles = particle->particles;
