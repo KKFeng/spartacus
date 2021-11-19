@@ -1743,7 +1743,7 @@ template < int DIM, int SURF > void Update::move2()
                         else outface_flag--;
                         jcell= cells[icell].neigh[outface_flag];
 
-                        particles[i].Temp = 2*cells[icell].macro.Temp- cells[jcell].macro.Temp;
+                        particles[i].Temp = 2* cells[icell].macro.Temp- cells[jcell].macro.Temp;
                         for (int j = 0; j < 3; j++)
                         {
                             particles[i].macro_v[j] = 2 * cells[icell].macro.v[j] - cells[jcell].macro.v[j];
