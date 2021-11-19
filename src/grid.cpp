@@ -264,9 +264,7 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
 
   for (int i = 0; i < 6; i++) ci->sigmaave[i] = 0;
   for (int i = 0; i < 3; i++) ci->qave[i] = 0;
-  for (int i = 0; i < 3; i++) ci->macro.v[i] = 0;
 
-  ci->macro.Temp = 0.0;
   ci->nu = 0;
   ci->psai1 = 0;
   ci->psai2 = 0;
