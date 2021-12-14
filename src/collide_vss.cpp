@@ -606,8 +606,8 @@ void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell)
     Grid::ChildInfo* cinfo = grid->cinfo;
     Grid::ChildCell* cells = grid->cells;
     double* vi = ip->v;
-    double* v_mac = ip->macro_v;
-    double T = ip->Temp;
+    double* v_mac = cells[icell].macro.v;
+    double T = cells[icell].macro.Temp;
     double* x = ip->x;
 
     double vn[3];
