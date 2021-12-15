@@ -135,7 +135,8 @@ void GridCommMacro::acquire_macro_comm_list_near()
     int maxChildLevel = 1000;
     for (int icell = 0; icell < nlocal; icell++) {
         if (cells[icell].nsplit > 0 && cells[icell].level < maxChildLevel) {
-            for (i = 0; i < 3; ++i) {
+            maxChildLevel = cells[icell].level;
+            for (i = 0; i < domain->dimension; ++i) {
                 cut = MAX(cut, cells[icell].hi[i] - cells[icell].lo[i]);
             }
         }
@@ -156,7 +157,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
     int* bflag = domain->bflag;
 
     double ebblo[3], ebbhi[3];
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < domain->dimension; i++) {
         ebblo[i] = bblo[i] - cut;
         ebbhi[i] = bbhi[i] + cut;
         if (bflag[2 * i] != PERIODIC) ebblo[i] = MAX(ebblo[i], boxlo[i]);
@@ -310,11 +311,13 @@ void GridCommMacro::acquire_macro_comm_list_near()
     memset(rbuf, 0, recvsize);
 
     irregular->exchange_variable(sbuf, sizelist, rbuf);
+    memory->destroy(recvicelllist);
+    memory->create(recvicelllist,ncellsendall,"GridCommMacro:recvicellist");
     for (int i = 0; i < ncellsendall; ++i) {
         cellint id = 0;
         memcpy(&id, rbuf + i * sizeof(CommMacro), sizeof(cellint));
         if (grid->hash->find(id) != grid->hash->end()) {
-            recvicelllist[i] = (*grid->hash)[id];
+            recvicelllist[i] = (*(grid->hash))[id];
         }
         else {
             error->one(FLERR, "GridCommMacro : no such owned or ghost cell");

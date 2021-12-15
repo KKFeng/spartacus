@@ -1,3 +1,14 @@
 {
-    "cmake.sourceDirectory": "${workspaceFolder}/cmake"
+    "cmake.sourceDirectory": "${workspaceFolder}/cmake",
+    "files.associations": {
+        "*.tcc": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "functional": "cpp",
+        "memory": "cpp",
+        "optional": "cpp",
+        "string_view": "cpp",
+        "string": "cpp",
+        "system_error": "cpp"
+    }
 }
