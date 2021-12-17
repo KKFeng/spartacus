@@ -306,7 +306,8 @@ void GridCommMacro::acquire_macro_comm_list_near()
     memory->destroy(list);
     delete[] boxall;
 
-    // perform irregular communication of list of ghost cells
+    // perform irregular communication of list of neigh cells 
+    // whose V&T needed to be transfer.
 
     nrecvproc = irregular->create_data_variable(nsendproc, proclist, sizelist,
         recvsize, 1); //must sort
@@ -328,5 +329,10 @@ void GridCommMacro::acquire_macro_comm_list_near()
         }
            
     }
+
+}
+
+void GridCommMacro::runComm() 
+{
 
 }
