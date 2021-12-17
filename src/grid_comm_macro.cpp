@@ -278,14 +278,14 @@ void GridCommMacro::acquire_macro_comm_list_near()
         }
     }
     
-    if (me == 0) {
-        fprintf(screen, "ncellsendall: %d\n", ncellsendall);
-        fflush(screen);
-        fprintf(screen, "sendcelllist: %d,%d,%d,%d,%d,%d\n",
-            sendcelllist[0], sendcelllist[1], sendcelllist[2], 
-            sendcelllist[3], sendcelllist[4], sendcelllist[5] );
-        fflush(screen);
-    }
+    //if (me == 0) {
+    //    fprintf(screen, "ncellsendall: %d\n", ncellsendall);
+    //    fflush(screen);
+    //    fprintf(screen, "sendcelllist: %d,%d,%d,%d,%d,%d\n",
+    //        sendcelllist[0], sendcelllist[1], sendcelllist[2], 
+    //        sendcelllist[3], sendcelllist[4], sendcelllist[5] );
+    //    fflush(screen);
+    //}
 
 
     for (int i = 0; i < ncellsendall; ++i) {
@@ -327,6 +327,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
         else {
             error->one(FLERR, "GridCommMacro : no such owned or ghost cell");
         }
+        //DEBUG
         if (me == 0)  fprintf(screen, "cellId: %d, local id: %d\n", id, recvicelllist[i]);           
     }
 
@@ -334,5 +335,17 @@ void GridCommMacro::acquire_macro_comm_list_near()
 
 void GridCommMacro::runComm() 
 {
+    // pack macro, preparing for comm
+    for (int i = 0; i < ncellsendall; ++i) {
+        memcpy(sbuf + i * sizeof(CommMacro), 
+            &(grid->cells[sendcelllist[i]].macro), sizeof(CommMacro));
+    }
 
+    irregular->exchange_variable(sbuf, sizelist, rbuf);
+
+
+    for (int i = 0; i < nrecvcell; ++i) {
+        memcpy(&(grid->cells[recvicelllist[i]].macro),
+            rbuf + i * sizeof(CommMacro), sizeof(CommMacro));
+    }
 }

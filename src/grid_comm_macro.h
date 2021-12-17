@@ -40,7 +40,7 @@ public:
         * sizelist;// size = nsendproc
     int ncellsendall, 
         * sendcelllist, // size = ncellsendall
-        * sendfirst;    // size = nprocs, never change it when runComm()
+        * sendfirst;    // size = nprocs, don't change it when runComm()!!!
 
     // receiving plan
     int nrecvproc, nrecvcell, recvsize, * recvicelllist;

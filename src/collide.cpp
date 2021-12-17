@@ -37,6 +37,7 @@
 #include "memory.h"
 #include "error.h"
 #include <iostream>
+#include "grid_comm_macro.h"
 
 using namespace SPARTA_NS;
 using namespace std;              // added for cout
@@ -570,6 +571,8 @@ void Collide::computeMacro()
             }
         }
     } // end of computing macroscopic quantities for all cells
+    // run commMacro
+    grid->gridCommMacro->runComm();
 }
 
 
