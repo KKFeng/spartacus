@@ -157,6 +157,10 @@ void GridCommMacro::acquire_macro_comm_list_near()
     int* bflag = domain->bflag;
 
     double ebblo[3], ebbhi[3];
+    cut *= 0.99999999;
+    if(domain->dimension == 2) {
+        ebblo[2] = -0.5; ebbhi[2] = 0.5;
+    }
     for (i = 0; i < domain->dimension; i++) {
         ebblo[i] = bblo[i] - cut;
         ebbhi[i] = bbhi[i] + cut;
