@@ -317,8 +317,8 @@ void GridCommMacro::acquire_macro_comm_list_near()
 
     irregular->exchange_variable(sbuf, sizelist, rbuf);
     memory->destroy(recvicelllist);
-    memory->create(recvicelllist,ncellsendall,"GridCommMacro:recvicellist");
-    for (int i = 0; i < ncellsendall; ++i) {
+    memory->create(recvicelllist, nrecvcell,"GridCommMacro:recvicellist");
+    for (int i = 0; i < nrecvcell; ++i) {
         cellint id = 0;
         memcpy(&id, rbuf + i * sizeof(CommMacro), sizeof(cellint));
         if (grid->hash->find(id) != grid->hash->end()) {
@@ -327,7 +327,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
         else {
             error->one(FLERR, "GridCommMacro : no such owned or ghost cell");
         }
-           
+        if (me == 0)  fprintf(screen, "cellId: %d, local id: %d\n", id, recvicelllist[i]);           
     }
 
 }
