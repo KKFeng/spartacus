@@ -703,7 +703,13 @@ template < int NEARCP > void Collide::collisions_one()
         for (int iattempt = 0; iattempt < bgk_nattempt; iattempt++) {
             i = randarray[iattempt] - 1;
             ipart = &particles[plist[i]];
-            perform_bgk(ipart, icell);
+            if (true) {
+                int intercell = grid->gridCommMacro->interpolation(ipart);
+                perform_bgk(ipart, intercell);
+            }
+            else {
+                perform_bgk(ipart, icell);
+            }
         }
 
         // compute T and v after bgk_relaxation

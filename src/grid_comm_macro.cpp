@@ -30,6 +30,7 @@
 #include "error.h"
 #include "grid_comm_macro.h"
 #include "collide.h"
+#include "particle.h"
 // DEBUG
 #include "update.h"
 
@@ -348,4 +349,9 @@ void GridCommMacro::runComm()
         memcpy(&(grid->cells[recvicelllist[i]].macro),
             rbuf + i * sizeof(CommMacro), sizeof(CommMacro));
     }
+}
+
+int GridCommMacro::interpolation(Particle::OnePart* ipart)
+{
+    return ipart->icell;
 }

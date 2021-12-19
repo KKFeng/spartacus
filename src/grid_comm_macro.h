@@ -15,11 +15,7 @@
 #ifndef SPARTA_GRID_COMM_MACRO_H
 #define SPARTA_GRID_COMM_MACRO_H
 
-//#include "stdio.h"
 #include "pointers.h"
-//#include "hash3.h"
-//#include "my_page.h"
-//#include "surf.h"
 
 namespace SPARTA_NS {
 
@@ -30,6 +26,7 @@ public:
     ~GridCommMacro();
     void runComm();
     void acquire_macro_comm_list_near();
+    int interpolation(class Particle::OnePart*);
     
     int nprocs, me;
 
