@@ -1,3 +1,10 @@
+This is a USP-BGK solver based on SPARTA.
+
+SPARTA on GitHub: https://github.com/sparta/sparta 
+or my clone repository on Gitee: https://gitee.com/kaikfeng/sparta
+
+## Original SPARTA README:
+
 This is the SPARTA software package.
 
 SPARTA stands for Stochastic PArallel Rarefied-gas Time-accurate
