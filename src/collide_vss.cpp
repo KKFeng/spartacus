@@ -304,16 +304,15 @@ void CollideVSS::setup_collision(Particle::OnePart *ip, Particle::OnePart *jp)
 }
 
 /* ---------------------------------------------------------------------- */
-void CollideVSS::perform_bgk(Particle::OnePart*& ip,
-    double Temp, double arr[], int icell)
+void CollideVSS::perform_bgk(Particle::OnePart*& ip, int icell)
 {
     if (sbgkflag) 
     {
-        sbgk_atom(ip, Temp, arr, icell);
+        sbgk_atom(ip, icell);
     }
     else if (esbgkflag) 
     {
-        esbgk_atom(ip, Temp, arr, icell);
+        esbgk_atom(ip, icell);
     }
     else if (ubgkflag)
     {
@@ -321,7 +320,7 @@ void CollideVSS::perform_bgk(Particle::OnePart*& ip,
     }
     else  
     {
-        bgk_atom(ip, Temp, arr, icell);
+        bgk_atom(ip, icell);
     }
 }
 
@@ -497,8 +496,9 @@ void CollideVSS::SCATTER_TwoBodyScattering(Particle::OnePart *ip,
 
 /* ---------------------------------------------------------------------- */
 
-void CollideVSS::esbgk_atom(Particle::OnePart* ip, double Temp, double arr[], int np)
+void CollideVSS::esbgk_atom(Particle::OnePart* ip, int np)
 {
+    double arr[16]{ 0.0 };
     Particle::Species* species = particle->species;
     double* vi = ip->v;
     vi[0] = random->gaussian() * arr[9];
@@ -521,8 +521,9 @@ void CollideVSS::esbgk_atom(Particle::OnePart* ip, double Temp, double arr[], in
 
 /* ---------------------------------------------------------------------- */
 
-void CollideVSS::bgk_atom(Particle::OnePart* ip, double Temp, double arr[], int np)
+void CollideVSS::bgk_atom(Particle::OnePart* ip, int np)
 {
+    double arr[16]{ 0.0 };
     Particle::Species* species = particle->species;
     double* vi = ip->v;
 
@@ -534,8 +535,9 @@ void CollideVSS::bgk_atom(Particle::OnePart* ip, double Temp, double arr[], int 
 
 /* ---------------------------------------------------------------------- */
 
-void CollideVSS::sbgk_atom(Particle::OnePart* ip, double Temp, double arr[], int np)
+void CollideVSS::sbgk_atom(Particle::OnePart* ip, int np)
 {
+    double arr[16]{ 0.0 };
     Particle::Species* species = particle->species;
     double* vi = ip->v;
     double vn[3];
@@ -568,8 +570,9 @@ void CollideVSS::sbgk_atom(Particle::OnePart* ip, double Temp, double arr[], int
 
 /* ---------------------------------------------------------------------- */
 
-void CollideVSS::sbgk_atom1(Particle::OnePart* ip, double Temp, double arr[], int np)
+void CollideVSS::sbgk_atom1(Particle::OnePart* ip, int np)
 {
+    double arr[16]{ 0.0 };
     Particle::Species* species = particle->species;
     Grid::ChildInfo* cinfo = grid->cinfo;
     double* vi = ip->v;

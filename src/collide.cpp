@@ -700,13 +700,10 @@ template < int NEARCP > void Collide::collisions_one()
                 swap(randarray[i], randarray[t]);
             }
         }
-
-        double var[16];
-
         for (int iattempt = 0; iattempt < bgk_nattempt; iattempt++) {
             i = randarray[iattempt] - 1;
             ipart = &particles[plist[i]];
-            perform_bgk(ipart, Temp, var, icell);
+            perform_bgk(ipart, icell);
         }
 
         // compute T and v after bgk_relaxation
