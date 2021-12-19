@@ -191,11 +191,12 @@ double CollideVSS::attempt_bgk(int icell)
     double nu = cinfo[icell].nu;
     double np = cinfo[icell].count;
     //double nu1 = cinfo[icell].nu1;
-    if (np <= 3) 
+    if (np < 4) 
     {
-        bgk_nattempt = 0;
+        np += random->uniform() * 4;
+        if (np < 4) return 0;
     }
-    else if(esbgkflag)
+    if(esbgkflag)
     {
         bgk_nattempt = Pr * np * (1 - exp(-nu * dt));
     }
@@ -203,7 +204,7 @@ double CollideVSS::attempt_bgk(int icell)
     {
         bgk_nattempt = np * (1 - exp(-nu * dt));
     }
-    return bgk_nattempt;
+    return MIN(bgk_nattempt, (double)cinfo[icell].count);
 }
 
 /* ---------------------------------------------------------------------- */
