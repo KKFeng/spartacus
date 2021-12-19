@@ -73,15 +73,11 @@ class Particle : protected Pointers {
     int icell;              // which local Grid::cells the particle is in
     double x[3];            // particle position
     double v[3];            // particle velocity
-    double vv[3];
     double erot;            // rotational energy
     double evib;            // vibrational energy
     int flag;               // used for migration status
     double dtremain;        // portion of move timestep remaining
     double weight;          // particle or cell weight, if weighting enabled
-    double y[3];            // particle position for interpolation
-    double macro_v[3];      // particle speed for interpolation
-    double Temp;            // particle temp for interpolation
   };
 
   struct OnePartRestart {

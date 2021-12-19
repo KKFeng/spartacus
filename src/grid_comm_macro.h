@@ -29,7 +29,7 @@ public:
     int interpolation(class Particle::OnePart*);
     
     int nprocs, me;
-
+    class RanPark* random;
     // sending plan
     int nsendproc;
     int * proclist, // size = nsendproc 

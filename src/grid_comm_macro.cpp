@@ -31,9 +31,9 @@
 #include "grid_comm_macro.h"
 #include "collide.h"
 #include "particle.h"
-// DEBUG
-//#include "update.h"
-#include <iostream>
+#include "random_park.h"
+#include "update.h"
+#include "domain.h"
 
 using namespace SPARTA_NS;
 using namespace MathConst;
@@ -68,6 +68,7 @@ enum { PERIODIC, OUTFLOW, REFLECT, SURFACE, AXISYM };  // same as Domain
 GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
     me = comm->me;
     nprocs = comm->nprocs;
+    random = new RanPark(update->ranmaster->uniform());
     nsendproc = 0;
     proclist = new int[nprocs];
     nsendeachproc = new int[nprocs];
@@ -97,6 +98,7 @@ GridCommMacro::~GridCommMacro(){
     delete[] rbuf;
     delete[] sbuf;
     delete irregular;
+    delete random;
 
 }
 
@@ -354,6 +356,17 @@ void GridCommMacro::runComm()
 
 int GridCommMacro::interpolation(Particle::OnePart* ipart)
 {
-    std::cout << "parentID: " << grid->id_coarsen(ipart->icell, grid->cells[ipart->icell].level) << std::endl;
-    return ipart->icell;
+    double x[3];
+    double* lo = domain->boxlo;
+    double* hi = domain->boxhi;
+    for (int i = 0; i < 3; ++i) {
+        x[i] = ipart->x[i] + (random->uniform() - 0.5) *
+            (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
+    }
+    if (x[0] < lo[0] || x[0] > hi[0] ||
+        x[1] < lo[1] || x[1] > hi[1] || 
+        x[2] < lo[2] || x[2] > hi[2] ) return ipart->icell;
+    int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxlo, x);
+    if (id == -1) id = ipart->icell;
+    return id;
 }
