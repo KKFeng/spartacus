@@ -32,7 +32,8 @@
 #include "collide.h"
 #include "particle.h"
 // DEBUG
-#include "update.h"
+//#include "update.h"
+#include <iostream>
 
 using namespace SPARTA_NS;
 using namespace MathConst;
@@ -353,5 +354,6 @@ void GridCommMacro::runComm()
 
 int GridCommMacro::interpolation(Particle::OnePart* ipart)
 {
+    std::cout << "parentID: " << grid->id_coarsen(ipart->icell, grid->cells[ipart->icell].level) << std::endl;
     return ipart->icell;
 }

@@ -935,8 +935,8 @@ template < int DIM, int SURF > void Update::move()
                 // if parent, use id_find_child to identify child cell
                 //   result can be -1 for unknown cell, occurs when:
                 //   (a) particle hits face of ghost child cell
-            //   (b) the ghost cell extends beyond ghost halo
-            //   (c) cell on other side of face is a parent
+                //   (b) the ghost cell extends beyond ghost halo
+                //   (c) cell on other side of face is a parent
                 //   (d) its child, which the particle is in, is entirely beyond my halo
                 // if new cell is child and surfs exist, check if a split cell
 
