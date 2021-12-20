@@ -30,6 +30,7 @@ public:
     
     int nprocs, me;
     class RanPark* random;
+    int rand_flag; //init random when first used
     // sending plan
     int nsendproc;
     int * proclist, // size = nsendproc 

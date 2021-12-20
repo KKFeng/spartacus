@@ -68,8 +68,8 @@ enum { PERIODIC, OUTFLOW, REFLECT, SURFACE, AXISYM };  // same as Domain
 GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
     me = comm->me;
     nprocs = comm->nprocs;
-    random = new RanPark(0.1);
-    //random = new RanPark(update->ranmaster->uniform());
+    random = nullptr;
+    rand_flag = 1;
     nsendproc = 0;
     proclist = new int[nprocs];
     nsendeachproc = new int[nprocs];
@@ -348,6 +348,10 @@ int GridCommMacro::interpolation(Particle::OnePart* ipart)
     double x[3];
     double* lo = domain->boxlo;
     double* hi = domain->boxhi;
+    if (rand_flag) {
+        rand_flag = 0;
+        random = new RanPark(update->ranmaster->uniform);
+    }
     for (int i = 0; i < 3; ++i) {
         x[i] = ipart->x[i] + (random->uniform() - 0.5) *
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
