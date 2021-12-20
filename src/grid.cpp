@@ -432,7 +432,6 @@ void Grid::acquire_ghosts(int surfflag)
     surf->hash->clear();
     surf->hashfilled = 0;
   }
-  if (collide)
   grid->gridCommMacro->acquire_macro_comm_list_near(); // plan for routine macro comm
 
 }

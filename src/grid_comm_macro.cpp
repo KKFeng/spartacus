@@ -313,6 +313,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
     irregular->exchange_variable(sbuf, sizelist, rbuf);
     memory->destroy(recvicelllist);
     memory->create(recvicelllist, nrecvcell,"GridCommMacro:recvicellist");
+    if (!grid->hashfilled) grid->rehash();
     for (int i = 0; i < nrecvcell; ++i) {
         cellint id = 0;
         memcpy(&id, rbuf + i * sizeof(CommMacro), sizeof(cellint));
