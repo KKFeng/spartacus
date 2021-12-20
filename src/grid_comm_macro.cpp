@@ -50,25 +50,14 @@ using namespace MathConst;
 #define MAXSURFPERCELL  100
 #define MAXSPLITPERCELL 10
 
-//enum { XLO, XHI, YLO, YHI, ZLO, ZHI, INTERIOR };         // same as Domain
 enum { PERIODIC, OUTFLOW, REFLECT, SURFACE, AXISYM };  // same as Domain
-//enum { REGION_ALL, REGION_ONE, REGION_CENTER };      // same as Surf
-//enum { PERAUTO, PERCELL, PERSURF };                  // several files
-//
-//// cell type = OUTSIDE/INSIDE/OVERLAP if entirely outside/inside surfs
-////   or has any overlap with surfs including grazing or touching
-//// corner point = OUTSIDE/INSIDE (not OVERLAP) if outside/inside
-////   if exactly on surf, is still marked OUTSIDE or INSIDE by cut2d/cut3d
-////   corner pts are only set if cell type = OVERLAP
-//
-//enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };           // several files
-//enum { NCHILD, NPARENT, NUNKNOWN, NPBCHILD, NPBPARENT, NPBUNKNOWN, NBOUND };  // Update
-//enum { NOWEIGHT, VOLWEIGHT, RADWEIGHT };
+
+/* ---------------------------------------------------------------------- */
 
 GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
     me = comm->me;
     nprocs = comm->nprocs;
-    random = nullptr;
+    random = nullptr; // random is initialized when first used
     rand_flag = 1;
     nsendproc = 0;
     proclist = new int[nprocs];
@@ -89,6 +78,8 @@ GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
 
 }
 
+/* ---------------------------------------------------------------------- */
+
 GridCommMacro::~GridCommMacro(){
     delete[] proclist;
     delete[] nsendeachproc;
@@ -103,16 +94,19 @@ GridCommMacro::~GridCommMacro(){
 
 }
 
+/* ----------------------------------------------------------------------
+   Generate grid list that needed to be transfered, including recv & snd.
+------------------------------------------------------------------------- */
 
 void GridCommMacro::acquire_macro_comm_list_near()
 {
-    //Currently only consider global gridcut = -1.0, thus I have all child cell information
+    // Currently only consider global gridcut = -1.0, thus I have all child cell information
     // of the whole sim box.
 
     if (grid->cutoff >= 0.0) error->one(FLERR, "Macro Comm: cutoff >=0.0");
     if (!grid->exist_ghost) error->one(FLERR, "Macro Comm: Ghost cell not exist");
 
-    // bb lo/hi = bounding box for my owned cells
+    // bb lo/hi = bounding box of my owned cells
 
     int i;
     double bblo[3], bbhi[3];
@@ -135,6 +129,8 @@ void GridCommMacro::acquire_macro_comm_list_near()
     }
 
     // cut = max side length of all child cells in this proc
+    // NOTE: currently cut can hold more than 1 layer of child
+    //       cells which transfer CommMacro.
 
     double cut = 0.0;
     int maxChildLevel = 1000;
@@ -146,7 +142,6 @@ void GridCommMacro::acquire_macro_comm_list_near()
             }
         }
     }
-
 
     // ebb lo/hi = bbox + cut
     // trim to simulation box in non-periodic dims
@@ -259,13 +254,11 @@ void GridCommMacro::acquire_macro_comm_list_near()
     memory->destroy(sbuf);
     memory->create(sbuf, ncellsendall * sizeof(CommMacro), "gridCommMacro : sbuf");
 
-
     int* sf = new int[nprocs]; //sendfirst
     sf[0] = 0;
     for (int i = 1; i < nprocs; ++i) {
         sf[i] = sf[i - 1] + nsendeachproc[i - 1];
     }
-
     memcpy(sendfirst, sf, sizeof(int)* nprocs);
 
     for (int icell = 0; icell < nlocal; icell++) {
@@ -281,10 +274,10 @@ void GridCommMacro::acquire_macro_comm_list_near()
             lastproc = boxall[j].proc;
             sendcelllist[sf[lastproc]++] = icell;
         }
-    }
-    
+    } 
 
-
+    // now cell list I send out is storaged in sbuf at intervals
+    // NOTE: sizeof(CommMacro) >= sizeof(cellint) must be guaranteed.
     for (int i = 0; i < ncellsendall; ++i) {
         memcpy(sbuf + i * sizeof(CommMacro), &(grid->cells[sendcelllist[i]].id), sizeof(cellint));
     }
@@ -295,9 +288,8 @@ void GridCommMacro::acquire_macro_comm_list_near()
             error->one(FLERR, "sendcelllist set error!");
     }
 
-    delete[] sf;
     // clean up
-
+    delete[] sf;
     memory->destroy(list);
     delete[] boxall;
 
@@ -305,7 +297,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
     // whose V&T needed to be transfer.
 
     nrecvproc = irregular->create_data_variable(nsendproc, proclist, sizelist,
-        recvsize, 1); //must sort
+        recvsize, 1); // must sort, such that CommMacro I recv is in fixed order
     nrecvcell = recvsize / sizeof(CommMacro);
     memory->create(rbuf, recvsize, "gridCommMacro:rbuf");
     memset(rbuf, 0, recvsize);
@@ -313,7 +305,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
     irregular->exchange_variable(sbuf, sizelist, rbuf);
     memory->destroy(recvicelllist);
     memory->create(recvicelllist, nrecvcell,"GridCommMacro:recvicellist");
-    if (!grid->hashfilled) grid->rehash();
+    if (!grid->hashfilled) grid->rehash(); // need to be done when create_grid
     for (int i = 0; i < nrecvcell; ++i) {
         cellint id = 0;
         memcpy(&id, rbuf + i * sizeof(CommMacro), sizeof(cellint));
@@ -324,8 +316,11 @@ void GridCommMacro::acquire_macro_comm_list_near()
             error->one(FLERR, "GridCommMacro : no such owned or ghost cell");
         }
     }
-
 }
+
+/* ----------------------------------------------------------------------
+   run macro communication each step based on snd & recv list created above
+------------------------------------------------------------------------- */
 
 void GridCommMacro::runComm() 
 {
@@ -334,15 +329,19 @@ void GridCommMacro::runComm()
         memcpy(sbuf + i * sizeof(CommMacro), 
             &(grid->cells[sendcelllist[i]].macro), sizeof(CommMacro));
     }
-
+    // communicating
     irregular->exchange_variable(sbuf, sizelist, rbuf);
-
-
+    // unpack
     for (int i = 0; i < nrecvcell; ++i) {
         memcpy(&(grid->cells[recvicelllist[i]].macro),
             rbuf + i * sizeof(CommMacro), sizeof(CommMacro));
     }
 }
+
+/* ----------------------------------------------------------------------
+   band particle ipart with a cell CommMacro, return ipart->icell for exception
+   NOTE: this part should be refined to adapt these exceptions.
+------------------------------------------------------------------------- */
 
 int GridCommMacro::interpolation(Particle::OnePart* ipart)
 {
