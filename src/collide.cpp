@@ -707,6 +707,7 @@ template < int NEARCP > void Collide::collisions_one()
             ipart = &particles[plist[i]];
             if (true) {
                 int intercell = grid->gridCommMacro->interpolation(ipart);
+                if (!(cells[intercell].macro.Temp > 0)) intercell = icell;
                 perform_bgk(ipart, intercell);
             }
             else {
