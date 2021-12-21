@@ -454,12 +454,10 @@ void Collide::reset_vremax()
 
 void Collide::computeMacro()
 {
-    int i, j, k, m, n, ip, np,icell,isp;
-    int nattempt, reactflag, bgk_nattempt;
-    double attempt,volume,bgk_attempt,Pr,vsq,Temp,nu,sqrt_R,dt_nu,alpha,Pc,tao,tao_coth,c2;
+    int i, ip;
+    double volume,Pr,vsq,Temp,nu,sqrt_R,dt_nu,Pc,tao,tao_coth,c2;
     double sigma_scale, q_scale;
     double sigma[6], q[3];
-    Particle::OnePart* ipart, * jpart, * kpart;
 
     // loop over cells I own
 
@@ -472,16 +470,18 @@ void Collide::computeMacro()
     Pr = update->Pr;
 
     // compute macroscopic quantities for all cells
-    for (icell = 0; icell < nglocal; icell++)
+    for (int icell = 0; icell < nglocal; icell++)
     {
-        np = cinfo[icell].count;
+        auto macrov = cells[icell].macro.v;
+        auto macroT = cells[icell].macro.Temp;
+        int np = cinfo[icell].count;
         if (np <= 3) continue;
 
         ip = cinfo[icell].first;
         volume = cinfo[icell].volume / cinfo[icell].weight;
         cinfo[icell].nrho = np * update->fnum / volume;
         if (volume == 0.0) error->one(FLERR, "Collision cell volume is zero");
-        isp = particles[ip].ispecies;
+        int isp = particles[ip].ispecies;
         matom = species[isp].mass;
         omegaatom = species[isp].omega;
         murefatom = species[isp].muref;
@@ -490,16 +490,17 @@ void Collide::computeMacro()
 
         double a[6] = { 0 };
         while (ip >= 0) {
-            a[0] += particles[ip].v[0];
-            a[1] += particles[ip].v[1];
-            a[2] += particles[ip].v[2];
-            a[3] += (particles[ip].v[0]) * (particles[ip].v[0]);
-            a[4] += (particles[ip].v[1]) * (particles[ip].v[1]);
-            a[5] += (particles[ip].v[2]) * (particles[ip].v[2]);
+            double* v = particles[ip].v;
+            a[0] += v[0];
+            a[1] += v[1];
+            a[2] += v[2];
+            a[3] += v[0] * v[0];
+            a[4] += v[1] * v[1];
+            a[5] += v[2] * v[2];
             ip = next[ip];
         }
         for (i = 0; i < 3; i++){
-            cells[icell].macro.v[i] = a[i] / np;
+            macrov[i] = a[i] / np;
         }
         vsq = a[3] + a[4] + a[5];
         cells[icell].macro.Temp = matom * (vsq - (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) / np) / (3 * update->boltz * (np));
@@ -522,19 +523,20 @@ void Collide::computeMacro()
         double b[12] = { 0 };
         while (ip >= 0)
         {
-            b[0] = pow((particles[ip].v[0] - cells[icell].macro.v[0]), 2);
-            b[1] = pow((particles[ip].v[1] - cells[icell].macro.v[1]), 2);
-            b[2] = pow((particles[ip].v[2] - cells[icell].macro.v[2]), 2);
+            double* v = particles[ip].v;
+            b[0] = pow((v[0] - macrov[0]), 2);
+            b[1] = pow((v[1] - macrov[1]), 2);
+            b[2] = pow((v[2] - macrov[2]), 2);
             b[3] += b[0];  // sigmaxx
             b[4] += b[1]; // sigmayy
             b[5] += b[2]; // sigmazz
             c2 = b[0] + b[1] + b[2];
-            b[6] += (particles[ip].v[0] - cells[icell].macro.v[0]) * (particles[ip].v[1] - cells[icell].macro.v[1]); // sigmaxy
-            b[7] += (particles[ip].v[0] - cells[icell].macro.v[0]) * (particles[ip].v[2] - cells[icell].macro.v[2]); // sigmaxz
-            b[8] += (particles[ip].v[2] - cells[icell].macro.v[2]) * (particles[ip].v[1] - cells[icell].macro.v[1]); // sigmayz
-            b[9] += (particles[ip].v[0] - cells[icell].macro.v[0]) * c2; // qx
-            b[10] += (particles[ip].v[1] - cells[icell].macro.v[1]) * c2; // qy
-            b[11] += (particles[ip].v[2] - cells[icell].macro.v[2]) * c2; // qz
+            b[6] += (v[0] - macrov[0]) * (v[1] - macrov[1]); // sigmaxy
+            b[7] += (v[0] - macrov[0]) * (v[2] - macrov[2]); // sigmaxz
+            b[8] += (v[2] - macrov[2]) * (v[1] - macrov[1]); // sigmayz
+            b[9] += (v[0] - macrov[0]) * c2; // qx
+            b[10] += (v[1] - macrov[1]) * c2; // qy
+            b[11] += (v[2] - macrov[2]) * c2; // qz
             ip = next[ip];
         }
         sigma_scale = 2 * update->fnum * np / (np - 1) / (2 + dt_nu * Pc) / volume;
