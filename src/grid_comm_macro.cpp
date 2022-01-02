@@ -57,23 +57,23 @@ enum { PERIODIC, OUTFLOW, REFLECT, SURFACE, AXISYM };  // same as Domain
 GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
     me = comm->me;
     nprocs = comm->nprocs;
-    random = nullptr; // random is initialized when first used
+    random = NULL; // random is initialized when first used
     rand_flag = 1;
     nsendproc = 0;
     proclist = new int[nprocs];
     nsendeachproc = new int[nprocs];
     sizelist = new int[nprocs];
     sendfirst = new int[nprocs];
-    sendcelllist = nullptr;
+    sendcelllist = NULL;
     ncellsendall = 0;
 
     recvsize = 0;
     nrecvproc = 0;
     nrecvcell = 0;
-    recvicelllist = nullptr;
+    recvicelllist = NULL;
 
-    rbuf = nullptr;
-    sbuf = nullptr;
+    rbuf = NULL;
+    sbuf = NULL;
     irregular = new Irregular(sparta);
 
 }
@@ -116,8 +116,8 @@ void GridCommMacro::acquire_macro_comm_list_near()
         bblo[i] = BIG;
         bbhi[i] = -BIG;
     }
-    auto& cells = grid->cells;
-    auto& nlocal = grid->nlocal;
+    Grid::ChildCell*& cells = grid->cells;
+    int& nlocal = grid->nlocal;
     for (int icell = 0; icell < nlocal; icell++) {
         if (cells[icell].nsplit <= 0) continue;
         lo = cells[icell].lo;

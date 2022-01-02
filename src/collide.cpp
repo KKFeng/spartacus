@@ -472,8 +472,8 @@ void Collide::computeMacro()
     // compute macroscopic quantities for all cells
     for (int icell = 0; icell < nglocal; icell++)
     {
-        auto macrov = cells[icell].macro.v;
-        auto macroT = cells[icell].macro.Temp;
+        double* macrov = cells[icell].macro.v;
+        double macroT = cells[icell].macro.Temp;
         int np = cinfo[icell].count;
         if (np <= 3) continue;
 
