@@ -305,7 +305,7 @@ void CollideVSS::setup_collision(Particle::OnePart *ip, Particle::OnePart *jp)
 }
 
 /* ---------------------------------------------------------------------- */
-void CollideVSS::perform_bgk(Particle::OnePart*& ip, int icell)
+void CollideVSS::perform_bgk(Particle::OnePart*& ip, int icell, const CommMacro* interMacro)
 {
     if (sbgkflag) 
     {
@@ -317,7 +317,7 @@ void CollideVSS::perform_bgk(Particle::OnePart*& ip, int icell)
     }
     else if (ubgkflag)
     {
-        uspbgk_atom(ip, icell);
+        uspbgk_atom(ip, icell, interMacro);
     }
     else  
     {
@@ -571,14 +571,14 @@ void CollideVSS::sbgk_atom(Particle::OnePart* ip, int np)
 
 /* ---------------------------------------------------------------------- */
 
-void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell)
+void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell, const CommMacro* interMacro)
 {
     Particle::Species* species = particle->species;
     Grid::ChildInfo* cinfo = grid->cinfo;
     Grid::ChildCell* cells = grid->cells;
     double* vi = ip->v;
-    double* v_mac = cells[icell].macro.v;
-    double T = cells[icell].macro.Temp;
+    const double* v_mac = interMacro->v;
+    double T = interMacro->Temp;
     double* x = ip->x;
 
     double vn[3];

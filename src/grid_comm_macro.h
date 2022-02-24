@@ -26,7 +26,7 @@ public:
     ~GridCommMacro();
     void runComm();
     void acquire_macro_comm_list_near();
-    int interpolation(class Particle::OnePart*);
+    int interpolation(class Particle::OnePart*, const CommMacro*);
     
     int nprocs, me;
     class RanPark* random;

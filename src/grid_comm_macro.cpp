@@ -343,10 +343,12 @@ void GridCommMacro::runComm()
 
 /* ----------------------------------------------------------------------
    band particle ipart with a cell CommMacro, return ipart->icell for exception
+   return: interMacro for wall interpolation.
    NOTE: this part should be refined to adapt these exceptions.
 ------------------------------------------------------------------------- */
 
-int GridCommMacro::interpolation(Particle::OnePart* ipart)
+int GridCommMacro::interpolation(Particle::OnePart* ipart,
+    const CommMacro* interMacro)
 {
     double x[3];
     double* lo = domain->boxlo;
@@ -359,11 +361,16 @@ int GridCommMacro::interpolation(Particle::OnePart* ipart)
         x[i] = ipart->x[i] + (random->uniform() - 0.5) *
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
     }
-    if (x[0] < lo[0] || x[0] > hi[0] ||
-        x[1] < lo[1] || x[1] > hi[1] || 
-        x[2] < lo[2] || x[2] > hi[2] ) return ipart->icell;
+    if (x[0] < lo[0] || x[0] > hi[0] || x[1] < lo[1] || x[1] > hi[1] ||
+        x[2] < lo[2] || x[2] > hi[2]) 
+    {
+        interMacro = &grid->cells[ipart->icell].macro;
+        return ipart->icell;
+    } 
     int xgrid = 0, ygrid = 0, zgrid = 0;
     int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, x);
+    interMacro = &grid->cells[ipart->icell].macro;
+
     if (id == -1) id = ipart->icell;
     return id;
 }

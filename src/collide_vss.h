@@ -41,7 +41,7 @@ class CollideVSS : public Collide {
   virtual void setup_collision(Particle::OnePart *, Particle::OnePart *);
   virtual int perform_collision(Particle::OnePart *&, Particle::OnePart *&,
                         Particle::OnePart *&);
-  virtual void perform_bgk(Particle::OnePart*&, int);
+  virtual void perform_bgk(Particle::OnePart*&, int, const class CommMacro*);
   double extract(int, int, const char *);
 
   struct State {      // two-particle state
@@ -100,7 +100,7 @@ class CollideVSS : public Collide {
   void esbgk_atom(Particle::OnePart*, int);
   void sbgk_atom(Particle::OnePart*, int);
   void bgk_atom(Particle::OnePart*, int);
-  void uspbgk_atom(Particle::OnePart*, int);
+  void uspbgk_atom(Particle::OnePart*, int, const class CommMacro*);
   double sample_bl(RanPark *, double, double);
   double rotrel (int, double);
   double vibrel (int, double);
