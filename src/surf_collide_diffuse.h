@@ -33,7 +33,7 @@ class SurfCollideDiffuse : public SurfCollide {
   void init();
   Particle::OnePart *collide(Particle::OnePart *&, double *, double &,
                              int, int &);
-
+  virtual class CommMacro* returnComm() { return macro; }
   void dynamic();
 
  protected:

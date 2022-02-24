@@ -34,6 +34,7 @@
 #include "random_park.h"
 #include "update.h"
 #include "domain.h"
+#include "surf_collide.h"
 
 using namespace SPARTA_NS;
 using namespace MathConst;
@@ -51,6 +52,7 @@ using namespace MathConst;
 #define MAXSPLITPERCELL 10
 
 enum { PERIODIC, OUTFLOW, REFLECT, SURFACE, AXISYM };  // same as Domain
+enum { XLO, XHI, YLO, YHI, ZLO, ZHI, INTERIOR };       // same as Domain
 
 /* ---------------------------------------------------------------------- */
 
@@ -350,7 +352,7 @@ void GridCommMacro::runComm()
 int GridCommMacro::interpolation(Particle::OnePart* ipart,
     const CommMacro* interMacro)
 {
-    double x[3];
+    double xnew[3];
     double* lo = domain->boxlo;
     double* hi = domain->boxhi;
     if (rand_flag) {
@@ -358,17 +360,56 @@ int GridCommMacro::interpolation(Particle::OnePart* ipart,
         random = new RanPark(update->ranmaster->uniform());
     }
     for (int i = 0; i < 3; ++i) {
-        x[i] = ipart->x[i] + (random->uniform() - 0.5) *
+        xnew[i] = ipart->x[i] + (random->uniform() - 0.5) *
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
     }
-    if (x[0] < lo[0] || x[0] > hi[0] || x[1] < lo[1] || x[1] > hi[1] ||
-        x[2] < lo[2] || x[2] > hi[2]) 
+    // when interpolating point is out of simulation box
+    const double x0 = ipart->x[0], y0 = ipart->x[1], z0 = ipart->x[2],
+        x = xnew[0], y = xnew[1], z = xnew[2],
+        xlo = lo[0], xhi = hi[0], ylo = lo[1], yhi = hi[1],
+        zlo = lo[2], zhi = hi[2];
+    if (x < xlo || x > xhi || y < ylo || y > yhi ||
+        z < zlo || z > zhi)
     {
-        interMacro = &grid->cells[ipart->icell].macro;
+        if (domain->dimension == 2) {
+            int ibound = -1;
+            if ((x < xlo) + (x > xhi) + (y < ylo)
+                + (y > yhi) == 1) 
+            {
+                if (x < xlo) ibound = XLO;
+                else if (x > xhi) ibound = XHI;
+                else if (y < ylo) ibound = YLO;
+                else if (y > yhi) ibound = YHI;
+            }
+            else {
+                if (x < xlo && y < ylo) {
+                    if (ylo > (y0 - y) / (x0 - x) * (xlo - x) + y) ibound = YLO;
+                    else ibound = XLO;
+                }
+                else if (x > xhi && y > yhi) {
+                    if (yhi > (y0 - y) / (x0 - x) * (xhi - x) + y) ibound = XHI;
+                    else ibound = YHI;
+                }
+                else if (x < xlo && y > yhi) {
+                    if (yhi > (y0 - y) / (x0 - x) * (xlo - x) + y) ibound = XLO;
+                    else ibound = YHI;
+                }
+                else if (x > xhi && y < ylo) {
+                    if (ylo > (y0 - y) / (x0 - x) * (xhi - x) + y) ibound = YLO;
+                    else ibound = XHI;
+                }
+
+            }
+            interMacro = surf->sc[domain->surf_collide[ibound]]->returnComm();
+            if (!interMacro) interMacro = &grid->cells[ipart->icell].macro;
+        }
+        else {
+            interMacro = &grid->cells[ipart->icell].macro;
+        }
         return ipart->icell;
     } 
     int xgrid = 0, ygrid = 0, zgrid = 0;
-    int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, x);
+    int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
     interMacro = &grid->cells[ipart->icell].macro;
 
     if (id == -1) id = ipart->icell;

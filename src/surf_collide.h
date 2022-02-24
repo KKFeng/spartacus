@@ -37,7 +37,7 @@ class SurfCollide : protected Pointers {
   virtual void init();
   virtual Particle::OnePart *collide(Particle::OnePart *&, double *,
                                      double &, int, int &) = 0;
-
+  virtual class CommMacro* returnComm() { return NULL; }
   virtual void dynamic() {}
   void tally_update();
   double compute_vector(int i);
