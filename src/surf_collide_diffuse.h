@@ -50,6 +50,7 @@ class SurfCollideDiffuse : public SurfCollide {
 
   double vstream[3];
   class RanPark *random;     // RNG for particle reflection
+  class CommMacro* macro;
 
   void diffuse(Particle::OnePart *, double *);
 };

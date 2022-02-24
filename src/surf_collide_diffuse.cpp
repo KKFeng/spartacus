@@ -30,6 +30,7 @@
 #include "math_const.h"
 #include "math_extra.h"
 #include "error.h"
+#include "grid.h"
 
 using namespace SPARTA_NS;
 using namespace MathConst;
@@ -102,6 +103,11 @@ SurfCollideDiffuse::SurfCollideDiffuse(SPARTA *sparta, int narg, char **arg) :
   random = new RanPark(update->ranmaster->uniform());
   double seed = update->ranmaster->uniform();
   random->reset(seed,comm->me,100);
+
+  // for macro params interpolation of USP method
+  macro = new CommMacro();
+  macro->Temp = twall;
+  macro->v[0] = vx; macro->v[1] = vy; macro->v[2] = vz;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -112,6 +118,8 @@ SurfCollideDiffuse::~SurfCollideDiffuse()
 
   delete [] tstr;
   delete random;
+  // for macro params interpolation of USP method
+  delete macro;
 }
 
 /* ---------------------------------------------------------------------- */
