@@ -571,39 +571,6 @@ void CollideVSS::sbgk_atom(Particle::OnePart* ip, int np)
 
 /* ---------------------------------------------------------------------- */
 
-void CollideVSS::sbgk_atom1(Particle::OnePart* ip, int np)
-{
-    double arr[16]{ 0.0 };
-    Particle::Species* species = particle->species;
-    Grid::ChildInfo* cinfo = grid->cinfo;
-    double* vi = ip->v;
-    double vn[3];
-    double pvn2A;
-
-    while (1)
-    {
-        for (int i = 0; i < 3; i++) {
-            vn[i] = random->gaussian();
-        }
-        pvn2A = ((vn[0] * arr[10] + vn[1] * arr[11] + vn[2] * arr[12])
-            * (vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2] - 5)
-            / 30 / arr[14] / pow(arr[9], 3) + 1) / arr[13];
-
-        if (random->uniform() < pvn2A)
-        {
-            break;
-        }
-    }
-
-    for (int i = 0; i < 3; i++)
-    {
-        vi[i] = vn[i] * arr[9] + arr[i];
-    }
-
-}
-
-/* ---------------------------------------------------------------------- */
-
 void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell)
 {
     Particle::Species* species = particle->species;

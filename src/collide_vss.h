@@ -99,11 +99,8 @@ class CollideVSS : public Collide {
 
   void esbgk_atom(Particle::OnePart*, int);
   void sbgk_atom(Particle::OnePart*, int);
-  void sbgk_atom1(Particle::OnePart*, int);
   void bgk_atom(Particle::OnePart*, int);
   void uspbgk_atom(Particle::OnePart*, int);
-  void uspbgk_atom1(Particle::OnePart*, int);
-  void uspbgk_atom2(Particle::OnePart*, int);
   double sample_bl(RanPark *, double, double);
   double rotrel (int, double);
   double vibrel (int, double);
