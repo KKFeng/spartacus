@@ -348,7 +348,7 @@ void GridCommMacro::runComm()
 ------------------------------------------------------------------------- */
 
 int GridCommMacro::interpolation(Particle::OnePart* ipart,
-    const CommMacro* interMacro)
+    const CommMacro*& interMacro)
 {
     double x[3];
     double* lo = domain->boxlo;

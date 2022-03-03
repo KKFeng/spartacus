@@ -708,10 +708,10 @@ template < int NEARCP > void Collide::collisions_one()
             if (true) {
                 const CommMacro* interMacro = NULL;
                 int intercell = grid->gridCommMacro->interpolation(ipart,interMacro);
-                if ((!interMacro) || (!(interMacro->Temp > 0))) {
-                    intercell = icell;
-                    interMacro = &grid->cells[icell].macro;
-                } 
+                //if ((!interMacro) || (!(interMacro->Temp > 0))) {
+                //    intercell = icell;
+                //    interMacro = &grid->cells[icell].macro;
+                //} 
                 perform_bgk(ipart, intercell,interMacro);
             }
             else {
