@@ -712,7 +712,7 @@ template < int NEARCP > void Collide::collisions_one()
                     intercell = icell;
                     interMacro = &grid->cells[icell].macro;
                 } 
-                perform_bgk(ipart, intercell,interMacro);
+                perform_bgk(ipart, icell,interMacro);
             }
             else {
                 perform_bgk(ipart, icell, &grid->cells[icell].macro);

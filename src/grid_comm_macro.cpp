@@ -410,7 +410,7 @@ int GridCommMacro::interpolation(Particle::OnePart* ipart,
     } 
     int xgrid = 0, ygrid = 0, zgrid = 0;
     int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
-    interMacro = &grid->cells[ipart->icell].macro;
+    interMacro = &grid->cells[id].macro;
 
     if (id == -1) id = ipart->icell;
     return id;
