@@ -400,7 +400,9 @@ int GridCommMacro::interpolation(Particle::OnePart* ipart,
                 }
 
             }
-            interMacro = surf->sc[domain->surf_collide[ibound]]->returnComm();
+            if (domain->bflag[ibound] == SURFACE) {
+                interMacro = surf->sc[domain->surf_collide[ibound]]->returnComm();
+            }
             if (!interMacro) interMacro = &grid->cells[ipart->icell].macro;
         }
         else {

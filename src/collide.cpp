@@ -709,10 +709,13 @@ template < int NEARCP > void Collide::collisions_one()
                 const CommMacro* interMacro = NULL;
                 int intercell = grid->gridCommMacro->interpolation(ipart,interMacro);
                 if ((!interMacro) || (!(interMacro->Temp > 0))) {
+                    if (!interMacro)
+                        error->warning(FLERR, "Collide::collision_one:interpolation failed!(!interMacro)");
+                    //else if (!(interMacro->Temp > 0))
+                    //    error->warning(FLERR, "Collide::collision_one:interpolation failed!(Temp <= 0)");
                     intercell = icell;
                     interMacro = &grid->cells[icell].macro;
-                    error->warning(FLERR, "Collide::collision_one:interpolation failed!");
-                } 
+                }
                 perform_bgk(ipart, icell,interMacro);
             }
             else {
