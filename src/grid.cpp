@@ -427,13 +427,12 @@ void Grid::acquire_ghosts(int surfflag)
   else if (comm->me == 0)
     error->warning(FLERR,"Could not acquire nearby ghost cells b/c "
                    "grid partition is not clumped");
-
+  rehash();
+  grid->gridCommMacro->acquire_macro_comm_list_near(); // plan for routine macro comm
   if (surf->distributed && !surf->implicit) {
     surf->hash->clear();
     surf->hashfilled = 0;
   }
-  grid->gridCommMacro->acquire_macro_comm_list_near(); // plan for routine macro comm
-
 }
 
 /* ----------------------------------------------------------------------
