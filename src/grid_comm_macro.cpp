@@ -349,8 +349,7 @@ void GridCommMacro::runComm()
    NOTE: this part should be refined to adapt these exceptions.
 ------------------------------------------------------------------------- */
 
-int GridCommMacro::interpolation(Particle::OnePart* ipart,
-    const CommMacro*& interMacro)
+const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
 {
     double xnew[3];
     double* lo = domain->boxlo;
@@ -363,6 +362,7 @@ int GridCommMacro::interpolation(Particle::OnePart* ipart,
         xnew[i] = ipart->x[i] + (random->uniform() - 0.5) *
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
     }
+    const CommMacro* interMacro = NULL;
     // when interpolating point is out of simulation box
     const double x0 = ipart->x[0], y0 = ipart->x[1], z0 = ipart->x[2],
         x = xnew[0], y = xnew[1], z = xnew[2],
@@ -408,12 +408,12 @@ int GridCommMacro::interpolation(Particle::OnePart* ipart,
         else {
             interMacro = &grid->cells[ipart->icell].macro;
         }
-        return ipart->icell;
+        return interMacro;
     } 
     int xgrid = 0, ygrid = 0, zgrid = 0;
     int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
     interMacro = &grid->cells[id].macro;
 
     if (id == -1) id = ipart->icell;
-    return id;
+    return interMacro;
 }

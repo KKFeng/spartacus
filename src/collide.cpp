@@ -706,14 +706,12 @@ template < int NEARCP > void Collide::collisions_one()
             i = randarray[iattempt] - 1;
             ipart = &particles[plist[i]];
             if (true) {
-                const CommMacro* interMacro = NULL;
-                int intercell = grid->gridCommMacro->interpolation(ipart,interMacro);
+                const CommMacro* interMacro = grid->gridCommMacro->interpolation(ipart);
                 if ((!interMacro) || (!(interMacro->Temp > 0))) {
                     if (!interMacro)
                         error->warning(FLERR, "Collide::collision_one:interpolation failed!(!interMacro)");
                     //else if (!(interMacro->Temp > 0))
                     //    error->warning(FLERR, "Collide::collision_one:interpolation failed!(Temp <= 0)");
-                    intercell = icell;
                     interMacro = &grid->cells[icell].macro;
                 }
                 perform_bgk(ipart, icell,interMacro);
