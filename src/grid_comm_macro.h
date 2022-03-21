@@ -48,9 +48,8 @@ public:
     class Irregular* irregular;
 
 private:
-    double xnew[3], x[3];
+    double xnew[3], xhold[3];
     class Particle::OnePart* ipart;
-    Grid::ChildCell* icell;
     typedef const CommMacro* (GridCommMacro::* FnPtr)();
     FnPtr interptr;             // ptr to move method
     const CommMacro* interpolation_2d();

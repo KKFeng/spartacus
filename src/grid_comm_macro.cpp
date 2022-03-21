@@ -53,7 +53,7 @@ using namespace MathConst;
 
 enum { PERIODIC, OUTFLOW, REFLECT, SURFACE, AXISYM };  // same as Domain
 enum { XLO, XHI, YLO, YHI, ZLO, ZHI, INTERIOR };       // same as Domain
-
+enum { OUTSIDE, INSIDE, ONSURF2OUT, ONSURF2IN };      // several files
 /* ---------------------------------------------------------------------- */
 
 GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
@@ -361,12 +361,11 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
         random = new RanPark(update->ranmaster->uniform());
     }
     for (int i = 0; i < domain->dimension; ++i) {
-        x[i] = ipart->x[i];
+        xhold[i] = ipart->x[i];
         xnew[i] = ipart->x[i] + (random->uniform() - 0.5) *
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
     }
     this->ipart = ipart;
-    this->icell = &grid->cells[ipart->icell];
     return (this->*interptr)();
 }
 
@@ -378,17 +377,12 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
     const CommMacro* interMacro = NULL;
 
     // check whether part is still in its original child cell
-
+    Grid::ChildCell* icell = &grid->cells[ipart->icell];
+    Grid::ChildCell* intercell = NULL;
     lo = icell->lo;  hi = icell->hi;
     const double  x = xnew[0], y = xnew[1];
     if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1]) {
-        if (icell->nsurf > 0) {
-
-            for (int i = 0; i < icell->nsurf; ++i) {
-
-            }
-        }
-        return &icell->macro;
+        intercell = icell;
     }
 
     // when interpolating point is out of simulation box
@@ -431,16 +425,62 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
         return interMacro;
     }
 
-    int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
-    if (id == -1) id = ipart->icell;
-    interMacro = &grid->cells[id].macro;
+    if (!intercell) {
+        int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
+        if (id == -1) id = ipart->icell;
+        intercell = &grid->cells[id];
+    }
+
+    bool hitflag = false;
+    double xc[3]{ 0.0,0.0,0.0 };
+    double param = 2.0, minparam = 2.0;
+    int side = 0, cflag = 0, isurf = -1, minsurf = -1;
+    if (icell->nsurf > 0) {
+        for (int i = 0; i < icell->nsurf; ++i) {
+            isurf = icell->csurfs[i];
+            Surf::Line* line = &surf->lines[isurf];
+            hitflag = Geometry::line_line_intersect(xhold, xnew, line->p1, line->p2,
+                line->norm, xc, param, side);
+            if (hitflag && param < minparam && side == OUTSIDE) {
+                cflag = 1;
+                minparam = param;
+                minsurf = isurf;
+            }
+        }
+    }
+    if (cflag) {
+        Surf::Line* line = &surf->lines[minsurf];
+        CommMacro* interMacro = surf->sc[line->isc]->returnComm();
+        if (!interMacro) interMacro = &icell->macro;
+        return interMacro;
+
+    } else if (intercell != icell && intercell->nsurf > 0) {
+        for (int i = 0; i < intercell->nsurf; ++i) {
+            isurf = intercell->csurfs[i];
+            Surf::Line* line = &surf->lines[isurf];
+            hitflag = Geometry::line_line_intersect(xhold, xnew, line->p1, line->p2,
+                line->norm, xc, param, side);
+            if (hitflag && param < minparam && side == OUTSIDE) {
+                cflag = 1;
+                minparam = param;
+                minsurf = isurf;
+            }
+        }
+        if (cflag) {
+            Surf::Line* line = &surf->lines[minsurf];
+            CommMacro* interMacro = surf->sc[line->isc]->returnComm();
+            if (!interMacro) interMacro = &intercell->macro;
+            return interMacro;
+        }
+    }
+    interMacro = &intercell->macro;
     return interMacro;
 }
 
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_axisym()
 {
-    return &icell->macro;
+    return &grid->cells[ipart->icell].macro;
 }
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_3d()
@@ -448,7 +488,7 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_3d()
     double* lo = domain->boxlo;
     double* hi = domain->boxhi;
     const CommMacro* interMacro = NULL;
-
+    Grid::ChildCell* icell = &grid->cells[ipart->icell];
     // check whether part is still in its original child cell
 
     lo = icell->lo;  hi = icell->hi;
