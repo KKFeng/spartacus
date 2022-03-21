@@ -77,7 +77,9 @@ GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
     rbuf = NULL;
     sbuf = NULL;
     irregular = new Irregular(sparta);
-
+    if (domain->dimension == 3) interptr = &GridCommMacro::interpolation_3d;
+    else if (domain->axisymmetric) interptr = &GridCommMacro::interpolation_axisym;
+    else  interptr = &GridCommMacro::interpolation_2d;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -351,78 +353,123 @@ void GridCommMacro::runComm()
 
 const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
 {
-    double xnew[3];
     double* lo = domain->boxlo;
     double* hi = domain->boxhi;
+    Grid::ChildCell& icell = grid->cells[ipart->icell];
     if (rand_flag) {
         rand_flag = 0;
         random = new RanPark(update->ranmaster->uniform());
     }
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < domain->dimension; ++i) {
+        x[i] = ipart->x[i];
         xnew[i] = ipart->x[i] + (random->uniform() - 0.5) *
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
     }
+    this->ipart = ipart;
+    this->icell = &grid->cells[ipart->icell];
+    return (this->*interptr)();
+}
+
+
+const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
+{
+    double* lo = domain->boxlo;
+    double* hi = domain->boxhi;
     const CommMacro* interMacro = NULL;
+
+    // check whether part is still in its original child cell
+
+    lo = icell->lo;  hi = icell->hi;
+    const double  x = xnew[0], y = xnew[1];
+    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1]) {
+        if (icell->nsurf > 0) {
+
+            for (int i = 0; i < icell->nsurf; ++i) {
+
+            }
+        }
+        return &icell->macro;
+    }
+
+    // when interpolating point is out of simulation box
+    const double x0 = ipart->x[0], y0 = ipart->x[1],
+        xlo = lo[0], xhi = hi[0], ylo = lo[1], yhi = hi[1];
+    if (x < xlo || x > xhi || y < ylo || y > yhi)
+    {
+        int ibound = -1;
+        if ((x < xlo) + (x > xhi) + (y < ylo)
+            + (y > yhi) == 1)
+        {
+            if (x < xlo) ibound = XLO;
+            else if (x > xhi) ibound = XHI;
+            else if (y < ylo) ibound = YLO;
+            else if (y > yhi) ibound = YHI;
+        }
+        else {
+            if (x < xlo && y < ylo) {
+                if (ylo > (y0 - y) / (x0 - x) * (xlo - x) + y) ibound = YLO;
+                else ibound = XLO;
+            }
+            else if (x > xhi && y > yhi) {
+                if (yhi > (y0 - y) / (x0 - x) * (xhi - x) + y) ibound = XHI;
+                else ibound = YHI;
+            }
+            else if (x < xlo && y > yhi) {
+                if (yhi > (y0 - y) / (x0 - x) * (xlo - x) + y) ibound = XLO;
+                else ibound = YHI;
+            }
+            else if (x > xhi && y < ylo) {
+                if (ylo > (y0 - y) / (x0 - x) * (xhi - x) + y) ibound = YLO;
+                else ibound = XHI;
+            }
+
+        }
+        if (domain->bflag[ibound] == SURFACE) {
+            interMacro = surf->sc[domain->surf_collide[ibound]]->returnComm();
+        }
+        if (!interMacro) interMacro = &icell->macro;
+        return interMacro;
+    }
+
+    int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
+    if (id == -1) id = ipart->icell;
+    interMacro = &grid->cells[id].macro;
+    return interMacro;
+}
+
+
+const CommMacro* SPARTA_NS::GridCommMacro::interpolation_axisym()
+{
+    return &icell->macro;
+}
+
+const CommMacro* SPARTA_NS::GridCommMacro::interpolation_3d()
+{
+    double* lo = domain->boxlo;
+    double* hi = domain->boxhi;
+    const CommMacro* interMacro = NULL;
+
+    // check whether part is still in its original child cell
+
+    lo = icell->lo;  hi = icell->hi;
+    const double  x = xnew[0], y = xnew[1], z = xnew[2];
+    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1] &&
+        z > lo[2] && z < hi[2]) {
+        return &icell->macro;
+    }
 
     // when interpolating point is out of simulation box
     const double x0 = ipart->x[0], y0 = ipart->x[1], z0 = ipart->x[2],
-        x = xnew[0], y = xnew[1], z = xnew[2],
         xlo = lo[0], xhi = hi[0], ylo = lo[1], yhi = hi[1],
         zlo = lo[2], zhi = hi[2];
     if (x < xlo || x > xhi || y < ylo || y > yhi ||
         z < zlo || z > zhi)
-    {
-        if (domain->dimension == 2) {
-            int ibound = -1;
-            if ((x < xlo) + (x > xhi) + (y < ylo)
-                + (y > yhi) == 1) 
-            {
-                if (x < xlo) ibound = XLO;
-                else if (x > xhi) ibound = XHI;
-                else if (y < ylo) ibound = YLO;
-                else if (y > yhi) ibound = YHI;
-            }
-            else {
-                if (x < xlo && y < ylo) {
-                    if (ylo > (y0 - y) / (x0 - x) * (xlo - x) + y) ibound = YLO;
-                    else ibound = XLO;
-                }
-                else if (x > xhi && y > yhi) {
-                    if (yhi > (y0 - y) / (x0 - x) * (xhi - x) + y) ibound = XHI;
-                    else ibound = YHI;
-                }
-                else if (x < xlo && y > yhi) {
-                    if (yhi > (y0 - y) / (x0 - x) * (xlo - x) + y) ibound = XLO;
-                    else ibound = YHI;
-                }
-                else if (x > xhi && y < ylo) {
-                    if (ylo > (y0 - y) / (x0 - x) * (xhi - x) + y) ibound = YLO;
-                    else ibound = XHI;
-                }
-
-            }
-            if (domain->bflag[ibound] == SURFACE) {
-                interMacro = surf->sc[domain->surf_collide[ibound]]->returnComm();
-            }
-            if (!interMacro) interMacro = &grid->cells[ipart->icell].macro;
-        }
-        else {
-            interMacro = &grid->cells[ipart->icell].macro;
-        }
-        return interMacro;
+    { 
+        return &icell->macro;
     } 
 
-    // check if part is still in its original child cell
-    lo = grid->cells[ipart->icell].lo;
-    hi = grid->cells[ipart->icell].hi;
-    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1] &&
-        z > lo[2] && z < hi[2]) {
-        return &grid->cells[ipart->icell].macro;
-    }
-
     int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
-    interMacro = &grid->cells[id].macro;
-
     if (id == -1) id = ipart->icell;
+    interMacro = &grid->cells[id].macro;
     return interMacro;
 }
