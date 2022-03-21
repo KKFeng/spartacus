@@ -363,6 +363,7 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
     }
     const CommMacro* interMacro = NULL;
+
     // when interpolating point is out of simulation box
     const double x0 = ipart->x[0], y0 = ipart->x[1], z0 = ipart->x[2],
         x = xnew[0], y = xnew[1], z = xnew[2],
@@ -410,7 +411,15 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
         }
         return interMacro;
     } 
-    int xgrid = 0, ygrid = 0, zgrid = 0;
+
+    // check if part is still in its original child cell
+    lo = grid->cells[ipart->icell].lo;
+    hi = grid->cells[ipart->icell].hi;
+    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1] &&
+        z > lo[2] && z < hi[2]) {
+        return &grid->cells[ipart->icell].macro;
+    }
+
     int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
     interMacro = &grid->cells[id].macro;
 
