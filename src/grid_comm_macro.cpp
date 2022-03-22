@@ -372,14 +372,12 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
 {
-    double* lo = domain->boxlo;
-    double* hi = domain->boxhi;
     const CommMacro* interMacro = NULL;
 
     // check whether part is still in its original child cell
     Grid::ChildCell* icell = &grid->cells[ipart->icell];
     Grid::ChildCell* intercell = NULL;
-    lo = icell->lo;  hi = icell->hi;
+    double* lo = icell->lo; double* hi = icell->hi;
     const double  x = xnew[0], y = xnew[1];
     if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1]) {
         intercell = icell;
@@ -387,7 +385,8 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
 
     // when interpolating point is out of simulation box
     const double x0 = ipart->x[0], y0 = ipart->x[1],
-        xlo = lo[0], xhi = hi[0], ylo = lo[1], yhi = hi[1];
+        xlo = domain->boxlo[0], xhi = domain->boxhi[0],
+        ylo = domain->boxlo[1], yhi = domain->boxhi[1];
     if (x < xlo || x > xhi || y < ylo || y > yhi)
     {
         int ibound = -1;
@@ -485,13 +484,11 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_axisym()
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_3d()
 {
-    double* lo = domain->boxlo;
-    double* hi = domain->boxhi;
     const CommMacro* interMacro = NULL;
     Grid::ChildCell* icell = &grid->cells[ipart->icell];
     // check whether part is still in its original child cell
 
-    lo = icell->lo;  hi = icell->hi;
+    double* lo = icell->lo;  double* hi = icell->hi;
     const double  x = xnew[0], y = xnew[1], z = xnew[2];
     if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1] &&
         z > lo[2] && z < hi[2]) {
@@ -500,8 +497,9 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_3d()
 
     // when interpolating point is out of simulation box
     const double x0 = ipart->x[0], y0 = ipart->x[1], z0 = ipart->x[2],
-        xlo = lo[0], xhi = hi[0], ylo = lo[1], yhi = hi[1],
-        zlo = lo[2], zhi = hi[2];
+        xlo = domain->boxlo[0], xhi = domain->boxhi[0],
+        ylo = domain->boxlo[1], yhi = domain->boxhi[1],
+        zlo = domain->boxlo[2], zhi = domain->boxhi[2];
     if (x < xlo || x > xhi || y < ylo || y > yhi ||
         z < zlo || z > zhi)
     { 
