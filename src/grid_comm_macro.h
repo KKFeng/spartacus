@@ -47,6 +47,10 @@ public:
     char* rbuf, * sbuf;
     class Irregular* irregular;
 
+    // status
+    bigint count_sumInter, count_surfInter, count_originInter,
+        count_boundInter, count_outInter, count_warningInter;
+
 private:
     double xnew[3], xhold[3];
     class Particle::OnePart* ipart;

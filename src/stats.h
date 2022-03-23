@@ -155,6 +155,10 @@ class Stats : protected Pointers {
   void compute_yhi();
   void compute_zlo();
   void compute_zhi();
+
+
+  // customized keywords for USP Interpolation
+
 };
 
 }

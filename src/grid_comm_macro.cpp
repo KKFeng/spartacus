@@ -449,7 +449,7 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
     }
     if (cflag) {
         Surf::Line* line = &surf->lines[minsurf];
-        CommMacro* interMacro = surf->sc[line->isc]->returnComm();
+        interMacro = surf->sc[line->isc]->returnComm();
         if (!interMacro) interMacro = &icell->macro;
         return interMacro;
 
@@ -467,7 +467,7 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
         }
         if (cflag) {
             Surf::Line* line = &surf->lines[minsurf];
-            CommMacro* interMacro = surf->sc[line->isc]->returnComm();
+            interMacro = surf->sc[line->isc]->returnComm();
             if (!interMacro) interMacro = &intercell->macro;
             return interMacro;
         }
