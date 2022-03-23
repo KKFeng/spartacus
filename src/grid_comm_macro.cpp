@@ -366,6 +366,7 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
             (grid->cells[ipart->icell].hi[i] - grid->cells[ipart->icell].lo[i]);;
     }
     this->ipart = ipart;
+    ++count_sumInter;
     return (this->*interptr)();
 }
 
@@ -419,14 +420,20 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
         }
         if (domain->bflag[ibound] == SURFACE) {
             interMacro = surf->sc[domain->surf_collide[ibound]]->returnComm();
+            ++count_boundInter;
+        }else {
+            interMacro = &icell->macro;
+            ++count_outInter;
         }
-        if (!interMacro) interMacro = &icell->macro;
         return interMacro;
     }
 
     if (!intercell) {
         int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
-        if (id == -1) id = ipart->icell;
+        if (id == -1) {
+            id = ipart->icell;
+            ++count_warningInter;
+        } 
         intercell = &grid->cells[id];
     }
 
@@ -450,7 +457,9 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
     if (cflag) {
         Surf::Line* line = &surf->lines[minsurf];
         interMacro = surf->sc[line->isc]->returnComm();
-        if (!interMacro) interMacro = &icell->macro;
+        if (!interMacro) {
+            interMacro = &icell->macro;
+        } else  ++count_surfInter;
         return interMacro;
 
     } else if (intercell != icell && intercell->nsurf > 0) {
@@ -468,10 +477,15 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
         if (cflag) {
             Surf::Line* line = &surf->lines[minsurf];
             interMacro = surf->sc[line->isc]->returnComm();
-            if (!interMacro) interMacro = &intercell->macro;
+            if (!interMacro) {
+                interMacro = &intercell->macro;
+                ++count_outInter;
+            } else  ++count_surfInter;
             return interMacro;
         }
     }
+    if (intercell == icell) ++count_originInter;
+    else ++count_neighInter;
     interMacro = &intercell->macro;
     return interMacro;
 }

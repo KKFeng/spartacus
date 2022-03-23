@@ -35,6 +35,7 @@
 #include "timer.h"
 #include "memory.h"
 #include "error.h"
+#include "grid_comm_macro.h"
 
 using namespace SPARTA_NS;
 
@@ -582,11 +583,27 @@ void Stats::set_fields(int narg, char **arg)
     } else if (strcmp(arg[i],"zhi") == 0) {
       addfield("Zhi",&Stats::compute_zhi,FLOAT);
 
+
+    } else if (strcmp(arg[i], "nInter") == 0) {
+        addfield("Ninter", &Stats::compute_interSum, BIGINT);
+    } else if (strcmp(arg[i], "surfInter") == 0) {
+        addfield("surfInter", &Stats::compute_interSurffrac, FLOAT);
+    } else if (strcmp(arg[i], "originInter") == 0) {
+    addfield("originInter", &Stats::compute_interOriginfrac, FLOAT);
+    } else if (strcmp(arg[i], "neighInter") == 0) {
+    addfield("neighInter", &Stats::compute_interNeighfrac, FLOAT);
+    } else if (strcmp(arg[i], "boundInter") == 0) {
+    addfield("boundInter", &Stats::compute_interBoundfrac, FLOAT);
+    } else if (strcmp(arg[i], "outInter") == 0) {
+    addfield("outInter", &Stats::compute_interOutfrac, FLOAT);
+    } else if (strcmp(arg[i], "warningInter") == 0) {
+    addfield("warningInter", &Stats::compute_interWarningfrac, FLOAT);
+    }  
+    
     // surf collide value = s_ID, surf react value = r_ID
     // count trailing [] and store int arguments
     // copy = at most 8 chars of ID to pass to addfield
-
-    } else if ((strncmp(arg[i],"s_",2) == 0) ||
+    else if ((strncmp(arg[i],"s_",2) == 0) ||
 	       (strncmp(arg[i],"r_",2) == 0)) {
 
       int n = strlen(arg[i]);
@@ -944,6 +961,18 @@ int Stats::evaluate_keyword(char *word, double *answer)
   else if (strcmp(word,"yhi") == 0) compute_yhi();
   else if (strcmp(word,"zlo") == 0) compute_zlo();
   else if (strcmp(word,"zhi") == 0) compute_zhi();
+
+  else if (strcmp(word, "zhi") == 0) compute_zhi();
+  else if (strcmp(word, "nInter") == 0) {
+    compute_interSum();
+    dvalue = bivalue;
+  }
+  else if (strcmp(word, "surfInter") == 0) compute_interSurffrac();
+  else if (strcmp(word, "originInter") == 0) compute_interOriginfrac();
+  else if (strcmp(word, "neighInter") == 0) compute_interNeighfrac(); 
+  else if (strcmp(word, "boundInter") == 0) compute_interBoundfrac(); 
+  else if (strcmp(word, "outInter") == 0) compute_interOutfrac(); 
+  else if (strcmp(word, "warningInter") == 0) compute_interWarningfrac();
 
   else return 1;
 
@@ -1410,4 +1439,63 @@ void Stats::compute_zlo()
 void Stats::compute_zhi()
 {
   dvalue = domain->boxhi[2];
+}
+
+void Stats::compute_interSum() {
+    bigint m = grid->gridCommMacro->count_sumInter;
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+}
+void Stats::compute_interSurffrac() {
+    bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);   
+    m = bivalue; bivalue = 0;
+    bigint n = grid->gridCommMacro->count_surfInter;
+    MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    n = bivalue;  bivalue = 0;
+    dvalue = 1.0 * n / m;
+}
+void Stats::compute_interOriginfrac() {
+    bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    m = bivalue; bivalue = 0;
+    bigint n = grid->gridCommMacro->count_originInter;
+    MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    n = bivalue;  bivalue = 0;
+    dvalue = 1.0 * n / m;
+}
+void Stats::compute_interNeighfrac() {
+    bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    m = bivalue; bivalue = 0;
+    bigint n = grid->gridCommMacro->count_neighInter;
+    MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    n = bivalue;  bivalue = 0;
+    dvalue = 1.0 * n / m;
+}
+void Stats::compute_interBoundfrac() {
+    bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    m = bivalue; bivalue = 0;
+    bigint n = grid->gridCommMacro->count_boundInter;
+    MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    n = bivalue;  bivalue = 0;
+    dvalue = 1.0 * n / m;
+}
+void Stats::compute_interOutfrac() {
+    bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    m = bivalue; bivalue = 0;
+    bigint n = grid->gridCommMacro->count_outInter;
+    MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    n = bivalue;  bivalue = 0;
+    dvalue = 1.0 * n / m;
+}
+void Stats::compute_interWarningfrac() {
+    bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    m = bivalue; bivalue = 0;
+    bigint n = grid->gridCommMacro->count_warningInter;
+    MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    n = bivalue;  bivalue = 0;
+    dvalue = 1.0 * n / m;
 }

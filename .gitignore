@@ -44,3 +44,4 @@ Thumbs.db
 /.vs
 /cmake/.vs
 /cmake/out/build
+*.zip
