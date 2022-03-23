@@ -1452,7 +1452,7 @@ void Stats::compute_interSurffrac() {
     bigint n = grid->gridCommMacro->count_surfInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
     n = bivalue;  bivalue = 0;
-    dvalue = 1.0 * n / m;
+    dvalue = 100.0 * n / m;
 }
 void Stats::compute_interOriginfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
@@ -1461,7 +1461,7 @@ void Stats::compute_interOriginfrac() {
     bigint n = grid->gridCommMacro->count_originInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
     n = bivalue;  bivalue = 0;
-    dvalue = 1.0 * n / m;
+    dvalue = 100.0 * n / m;
 }
 void Stats::compute_interNeighfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
@@ -1470,7 +1470,7 @@ void Stats::compute_interNeighfrac() {
     bigint n = grid->gridCommMacro->count_neighInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
     n = bivalue;  bivalue = 0;
-    dvalue = 1.0 * n / m;
+    dvalue = 100.0 * n / m;
 }
 void Stats::compute_interBoundfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
@@ -1479,7 +1479,7 @@ void Stats::compute_interBoundfrac() {
     bigint n = grid->gridCommMacro->count_boundInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
     n = bivalue;  bivalue = 0;
-    dvalue = 1.0 * n / m;
+    dvalue = 100.0 * n / m;
 }
 void Stats::compute_interOutfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
@@ -1488,7 +1488,7 @@ void Stats::compute_interOutfrac() {
     bigint n = grid->gridCommMacro->count_outInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
     n = bivalue;  bivalue = 0;
-    dvalue = 1.0 * n / m;
+    dvalue = 100.0 * n / m;
 }
 void Stats::compute_interWarningfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
@@ -1497,5 +1497,5 @@ void Stats::compute_interWarningfrac() {
     bigint n = grid->gridCommMacro->count_warningInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
     n = bivalue;  bivalue = 0;
-    dvalue = 1.0 * n / m;
+    dvalue = 100.0 * n / m;
 }
