@@ -77,9 +77,6 @@ GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
     rbuf = NULL;
     sbuf = NULL;
     irregular = new Irregular(sparta);
-    if (domain->dimension == 3) interptr = &GridCommMacro::interpolation_3d;
-    else if (domain->axisymmetric) interptr = &GridCommMacro::interpolation_axisym;
-    else  interptr = &GridCommMacro::interpolation_2d;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -359,6 +356,9 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
     if (rand_flag) {
         rand_flag = 0;
         random = new RanPark(update->ranmaster->uniform());
+        if (domain->dimension == 3) interptr = &GridCommMacro::interpolation_3d;
+        else if (domain->axisymmetric) interptr = &GridCommMacro::interpolation_axisym;
+        else  interptr = &GridCommMacro::interpolation_2d;
     }
     for (int i = 0; i < domain->dimension; ++i) {
         xhold[i] = ipart->x[i];
