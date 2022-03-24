@@ -1447,7 +1447,8 @@ void Stats::compute_interSum() {
 }
 void Stats::compute_interSurffrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
-    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);   
+    MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);  
+    if (bivalue == 0) { dvalue = 0.0; return; }
     m = bivalue; bivalue = 0;
     bigint n = grid->gridCommMacro->count_surfInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
@@ -1457,6 +1458,7 @@ void Stats::compute_interSurffrac() {
 void Stats::compute_interOriginfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
     MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    if (bivalue == 0) { dvalue = 0.0; return; }
     m = bivalue; bivalue = 0;
     bigint n = grid->gridCommMacro->count_originInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
@@ -1466,6 +1468,7 @@ void Stats::compute_interOriginfrac() {
 void Stats::compute_interNeighfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
     MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    if (bivalue == 0) { dvalue = 0.0; return; }
     m = bivalue; bivalue = 0;
     bigint n = grid->gridCommMacro->count_neighInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
@@ -1475,6 +1478,7 @@ void Stats::compute_interNeighfrac() {
 void Stats::compute_interBoundfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
     MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    if (bivalue == 0) { dvalue = 0.0; return; }
     m = bivalue; bivalue = 0;
     bigint n = grid->gridCommMacro->count_boundInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
@@ -1484,6 +1488,7 @@ void Stats::compute_interBoundfrac() {
 void Stats::compute_interOutfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
     MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    if (bivalue == 0) { dvalue = 0.0; return; }
     m = bivalue; bivalue = 0;
     bigint n = grid->gridCommMacro->count_outInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
@@ -1493,6 +1498,7 @@ void Stats::compute_interOutfrac() {
 void Stats::compute_interWarningfrac() {
     bigint m = grid->gridCommMacro->count_sumInter; bivalue = 0;
     MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    if (bivalue == 0) { dvalue = 0.0; return; }
     m = bivalue; bivalue = 0;
     bigint n = grid->gridCommMacro->count_warningInter;
     MPI_Allreduce(&n, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
