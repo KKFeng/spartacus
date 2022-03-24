@@ -374,21 +374,19 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
 {
     const CommMacro* interMacro = NULL;
-
-    // check whether part is still in its original child cell
     Grid::ChildCell* icell = &grid->cells[ipart->icell];
     Grid::ChildCell* intercell = NULL;
     double* lo = icell->lo; double* hi = icell->hi;
     const double  x = xnew[0], y = xnew[1];
-    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1]) {
-        intercell = icell;
-    }
-
-    // when interpolating point is out of simulation box
     const double x0 = ipart->x[0], y0 = ipart->x[1],
         xlo = domain->boxlo[0], xhi = domain->boxhi[0],
         ylo = domain->boxlo[1], yhi = domain->boxhi[1];
-    if (x < xlo || x > xhi || y < ylo || y > yhi)
+    // check whether part is still in its original child cell
+    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1]) {
+        intercell = icell;
+    }
+    // when interpolating point is out of simulation box
+    else if (x < xlo || x > xhi || y < ylo || y > yhi)
     {
         int ibound = -1;
         if ((x < xlo) + (x > xhi) + (y < ylo)
@@ -500,28 +498,120 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_3d()
 {
     const CommMacro* interMacro = NULL;
     Grid::ChildCell* icell = &grid->cells[ipart->icell];
-    // check whether part is still in its original child cell
-
+    Grid::ChildCell* intercell = NULL;
     double* lo = icell->lo;  double* hi = icell->hi;
     const double  x = xnew[0], y = xnew[1], z = xnew[2];
-    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1] &&
-        z > lo[2] && z < hi[2]) {
-        return &icell->macro;
-    }
-
-    // when interpolating point is out of simulation box
     const double x0 = ipart->x[0], y0 = ipart->x[1], z0 = ipart->x[2],
         xlo = domain->boxlo[0], xhi = domain->boxhi[0],
         ylo = domain->boxlo[1], yhi = domain->boxhi[1],
         zlo = domain->boxlo[2], zhi = domain->boxhi[2];
-    if (x < xlo || x > xhi || y < ylo || y > yhi ||
-        z < zlo || z > zhi)
+    // check whether part is still in its original child cell
+    if (x > lo[0] && x < hi[0] && y > lo[1] && y < hi[1] &&
+        z > lo[2] && z < hi[2]) {
+        intercell = icell;
+    }
+    // when interpolating point is out of simulation box
+    else if (x < xlo || x > xhi || y < ylo || y > yhi ||
+             z < zlo || z > zhi) 
     { 
-        return &icell->macro;
-    } 
 
-    int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
-    if (id == -1) id = ipart->icell;
-    interMacro = &grid->cells[id].macro;
+        int ibound = -1;
+        int tmp_count = (x < xlo) + (x > xhi) + (y < ylo) + (y > yhi) + (z < zlo) + (z > zhi);
+        if (tmp_count == 1)
+        {
+            if (x < xlo) ibound = XLO;
+            else if (x > xhi) ibound = XHI;
+            else if (y < ylo) ibound = YLO;
+            else if (y > yhi) ibound = YHI;
+            else if (z < zlo) ibound = ZLO;
+            else if (z > zhi) ibound = ZHI;
+        } else {
+            // if part is near the corner of domain, random number is used when interpolating
+            int possible_surf[3];
+            int i = 0;
+            if (x < xlo) possible_surf[i++] = XLO;
+            if (x > xhi) possible_surf[i++] = XHI;
+            if (y < ylo) possible_surf[i++] = YLO;
+            if (y > yhi) possible_surf[i++] = YHI;
+            if (z < zlo) possible_surf[i++] = ZLO;
+            if (z > zhi) possible_surf[i++] = ZHI;
+            int chose = (int)(random->uniform() * tmp_count);
+            ibound = possible_surf[chose];
+        }
+       
+        if (domain->bflag[ibound] == SURFACE) {
+            interMacro = surf->sc[domain->surf_collide[ibound]]->returnComm();
+            ++count_boundInter;
+        }
+        else {
+            interMacro = &icell->macro;
+            ++count_outInter;
+        }
+        return interMacro;
+    } 
+    if (!intercell) {
+        int id = grid->id_find_child(0, 0, domain->boxlo, domain->boxhi, xnew);
+        if (id == -1) {
+            id = ipart->icell;
+            ++count_warningInter;
+        }
+        intercell = &grid->cells[id];
+    }
+    //check surface
+    bool hitflag = false;
+    double xc[3]{ 0.0,0.0,0.0 };
+    double param = 2.0, minparam = 2.0;
+    int side = 0, cflag = 0, isurf = -1, minsurf = -1;
+    if (icell->nsurf > 0) {
+        for (int i = 0; i < icell->nsurf; ++i) {
+            isurf = icell->csurfs[i];
+            Surf::Tri* tri = &surf->tris[isurf];
+            hitflag = Geometry::
+                line_tri_intersect(xhold, xnew, tri->p1, tri->p2, tri->p3,
+                    tri->norm, xc, param, side);
+            if (hitflag && param < minparam && side == OUTSIDE) {
+                cflag = 1;
+                minparam = param;
+                minsurf = isurf;
+            }
+        }
+    }
+    if (cflag) {
+        Surf::Tri* tri = &surf->tris[minsurf];
+        interMacro = surf->sc[tri->isc]->returnComm();
+        if (!interMacro) {
+            interMacro = &icell->macro;
+        }
+        else  ++count_surfInter;
+        return interMacro;
+
+    }
+    else if (intercell != icell && intercell->nsurf > 0) {
+        for (int i = 0; i < intercell->nsurf; ++i) {
+            isurf = intercell->csurfs[i];
+            Surf::Tri* tri = &surf->tris[isurf];
+            hitflag = Geometry::
+                line_tri_intersect(xhold, xnew, tri->p1, tri->p2, tri->p3,
+                    tri->norm, xc, param, side);
+            if (hitflag && param < minparam && side == OUTSIDE) {
+                cflag = 1;
+                minparam = param;
+                minsurf = isurf;
+            }
+        }
+        if (cflag) {
+            Surf::Tri* tri = &surf->tris[minsurf];
+            interMacro = surf->sc[tri->isc]->returnComm();
+            if (!interMacro) {
+                interMacro = &intercell->macro;
+                ++count_outInter;
+            }
+            else  ++count_surfInter;
+            return interMacro;
+        }
+    }
+    if (intercell == icell) ++count_originInter;
+    else ++count_neighInter;
+    interMacro = &intercell->macro;
     return interMacro;
 }
