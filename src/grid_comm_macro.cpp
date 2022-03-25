@@ -370,6 +370,9 @@ const CommMacro* GridCommMacro::interpolation(Particle::OnePart* ipart)
     return (this->*interptr)();
 }
 
+/* ----------------------------------------------------------------------
+   interpolation for 2d simulation
+------------------------------------------------------------------------- */
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
 {
@@ -488,11 +491,18 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
     return interMacro;
 }
 
+/* ----------------------------------------------------------------------
+   interpolation for axisymmatric 2d simulation
+------------------------------------------------------------------------- */
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_axisym()
 {
     return &grid->cells[ipart->icell].macro;
 }
+
+/* ----------------------------------------------------------------------
+   interpolation for 3d simulation
+------------------------------------------------------------------------- */
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_3d()
 {
