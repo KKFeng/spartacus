@@ -12,14 +12,6 @@
    See the README file in the top-level SPARTA directory.
 ------------------------------------------------------------------------- */
 
-/*
-    filename:   particle.cpp
-    version :   1.0
-    abstract:   added omega,Tref and muref at line 1134
-    author  :   Peng Tian
-    date    :   20210516
-*/
-
 #include "mpi.h"
 #include "math.h"
 #include "string.h"

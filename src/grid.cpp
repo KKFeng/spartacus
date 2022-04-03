@@ -262,16 +262,15 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
   // increment both since are adding an unsplit cell
   
 
-  for (int i = 0; i < 6; i++) ci->sigmaave[i] = 0;
-  for (int i = 0; i < 3; i++) ci->qave[i] = 0;
+  for (int i = 0; i < 6; i++) ci->macro.sigmaave[i] = 0;
+  for (int i = 0; i < 3; i++) ci->macro.qave[i] = 0;
 
-  ci->nu = 0;
-  ci->psai1 = 0;
-  ci->psai2 = 0;
-  ci->nrho = 0;
-  ci->v_mpv = 0.0;
-  ci->Wmax = 1.0;
-  ci->Wmax0 = 1.0;
+  ci->macro.nu = 0;
+  ci->macro.psai1 = 0;
+  ci->macro.psai2 = 0;
+  ci->macro.nrho = 0;
+  ci->macro.Wmax = 1.0;
+  ci->macro.Wmax0 = 1.0;
 
   nunsplitlocal++;
   nlocal++;

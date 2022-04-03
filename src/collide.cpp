@@ -12,14 +12,6 @@
    See the README file in the top-level SPARTA directory.
 ------------------------------------------------------------------------- */
 
-/*
-    filename:   collide.cpp
-    version :   1.0
-    abstract:   added bgk model at line 525
-    author  :   Peng Tian
-    date    :   20210516
-*/
-
 #include "math.h"
 #include "string.h"
 #include "collide.h"
@@ -36,11 +28,9 @@
 #include "random_park.h"
 #include "memory.h"
 #include "error.h"
-#include <iostream>
 #include "grid_comm_macro.h"
 
 using namespace SPARTA_NS;
-using namespace std;              // added for cout
 
 enum{NONE,DISCRETE,SMOOTH};       // several files  (NOTE: change order)
 enum{PKEEP,PINSERT,PDONE,PDISCARD,PENTRY,PEXIT,PSURF};   // several files
@@ -479,7 +469,7 @@ void Collide::computeMacro()
 
         ip = cinfo[icell].first;
         volume = cinfo[icell].volume / cinfo[icell].weight;
-        cinfo[icell].nrho = np * update->fnum / volume;
+        cinfo[icell].macro.nrho = np * update->fnum / volume;
         if (volume == 0.0) error->one(FLERR, "Collision cell volume is zero");
         int isp = particles[ip].ispecies;
         matom = species[isp].mass;
@@ -506,17 +496,16 @@ void Collide::computeMacro()
         cells[icell].macro.Temp = matom * (vsq - (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) / np) / (3 * update->boltz * (np));
         Temp = cells[icell].macro.Temp;
         sqrt_R = sqrt(update->boltz / matom);
-        cinfo[icell].v_mpv = sqrt_R * sqrt(Temp);
-        nu = cinfo[icell].nrho * ktrefomiga2muref * pow(Temp, (1 - omegaatom));
-        cinfo[icell].nu = nu;
+        nu = cinfo[icell].macro.nrho * ktrefomiga2muref * pow(Temp, (1 - omegaatom));
+        cinfo[icell].macro.nu = nu;
         dt_nu = update->dt * nu;
         Pc = exp(-0.1 / dt_nu);
         tao = nu * update->dt / 2.0;
         tao_coth = tao * (1.0 + 2.0 / (exp(2.0 * tao) - 1.0));
         //cinfo[icell].psai1 = 1 - tao_coth;
         //cinfo[icell].psai2 = 1.5 - tao_coth;
-        cinfo[icell].psai1 = Pc * (1 - tao_coth);
-        cinfo[icell].psai2 = ((1 - Pc) * exp(-Pr * dt_nu) - exp(-dt_nu) + Pc) / Pr / (1 - exp(-dt_nu)) - Pc * tao_coth;
+        cinfo[icell].macro.psai1 = Pc * (1 - tao_coth);
+        cinfo[icell].macro.psai2 = ((1 - Pc) * exp(-Pr * dt_nu) - exp(-dt_nu) + Pc) / Pr / (1 - exp(-dt_nu)) - Pc * tao_coth;
 
         // compute sigmaij and qi
         ip = cinfo[icell].first;
@@ -551,25 +540,25 @@ void Collide::computeMacro()
             q[i] = b[i + 9] * q_scale;
         }
         // storing macroscopic quantities
-        if ((abs(cinfo[icell].sigmaave[0]) < 1e-20)){
+        if ((abs(cinfo[icell].macro.sigmaave[0]) < 1e-20)){
             for (i = 0; i < 6; i++) {
-                cinfo[icell].sigmaave[i] = sigma[i];
+                cinfo[icell].macro.sigmaave[i] = sigma[i];
             }
         }
         else {
             for (i = 0; i < 6; i++) {
-                cinfo[icell].sigmaave[i] = cinfo[icell].sigmaave[i] * 0.99 + sigma[i] * 0.01;
+                cinfo[icell].macro.sigmaave[i] = cinfo[icell].macro.sigmaave[i] * 0.99 + sigma[i] * 0.01;
             }
         }
 
-        if ((abs(cinfo[icell].qave[0]) < 1e-20)) {
+        if ((abs(cinfo[icell].macro.qave[0]) < 1e-20)) {
             for (i = 0; i < 3; i++) {
-                cinfo[icell].qave[i] = q[i];
+                cinfo[icell].macro.qave[i] = q[i];
             }
         }
         else {
             for (i = 0; i < 3; i++) {
-                cinfo[icell].qave[i] = cinfo[icell].qave[i] * 0.99 + q[i] * 0.01;
+                cinfo[icell].macro.qave[i] = cinfo[icell].macro.qave[i] * 0.99 + q[i] * 0.01;
             }
         }
     } // end of computing macroscopic quantities for all cells
@@ -637,24 +626,18 @@ template < int NEARCP > void Collide::collisions_one()
   int i,j,k,m,n,ip,np;
   int nattempt,reactflag;
   double attempt,volume;
-  double bgk_attempt;
-  int bgk_nattempt;
   Particle::OnePart *ipart,*jpart,*kpart;
 
   // loop over cells I own
 
-  Grid::ChildInfo * cinfo = grid->cinfo;
+  Grid::ChildInfo *cinfo = grid->cinfo;
 
-  Grid::ChildCell* cells = grid->cells;
   Particle::OnePart *particles = particle->particles;
-  Particle::Species* species = particle->species;//added for mass
   int *next = particle->next;
-  double Pr = update->Pr;
 
   for (int icell = 0; icell < nglocal; icell++) {
     np = cinfo[icell].count;
-
-    if (np <= 3) continue;
+    if (np <= 1) continue;
 
     if (NEARCP) {
       if (np > max_nn) realloc_nn(np,nn_last_partner);
@@ -677,6 +660,13 @@ template < int NEARCP > void Collide::collisions_one()
 	
     if (ubgkflag)
     {
+        computeMacro();
+        Grid::ChildCell* cells = grid->cells;
+        Particle::Species* species = particle->species;//added for mass
+        double Pr = update->Pr;
+        double bgk_attempt;
+        int bgk_nattempt;
+        if (np <= 3) continue;
         double Temp = cells[icell].macro.Temp;
         bgk_attempt = attempt_bgk(icell);
         bgk_nattempt = static_cast<int> (bgk_attempt + (random->uniform()));
@@ -694,12 +684,12 @@ template < int NEARCP > void Collide::collisions_one()
         if (bgk_nattempt < np / 2) {
             for (i = 0; i < bgk_nattempt; i++) {
                 int t = i + (np - i) * random->uniform();
-                swap(randarray[i], randarray[t]);
+                std::swap(randarray[i], randarray[t]);
             }
         } else {
             for (i = np - 1; i > bgk_nattempt - 1; i--) {
                 int t = i * random->uniform();
-                swap(randarray[i], randarray[t]);
+                std::swap(randarray[i], randarray[t]);
             }
         }
         for (int iattempt = 0; iattempt < bgk_nattempt; iattempt++) {
@@ -748,8 +738,8 @@ template < int NEARCP > void Collide::collisions_one()
 
         if (((update->ntimestep) % W_every) == 0)
         {
-            cinfo[icell].Wmax = cinfo[icell].Wmax0;
-            cinfo[icell].Wmax0 = 1.0;
+            cinfo[icell].macro.Wmax = cinfo[icell].macro.Wmax0;
+            cinfo[icell].macro.Wmax0 = 1.0;
         }
     }
 

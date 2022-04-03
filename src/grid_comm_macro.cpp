@@ -35,6 +35,7 @@
 #include "update.h"
 #include "domain.h"
 #include "surf_collide.h"
+#include "random_mars.h"
 
 using namespace SPARTA_NS;
 using namespace MathConst;

@@ -27,6 +27,15 @@ struct CommMacro {
     double v[3];
     double Temp;
 };
+struct NoCommMacro {
+    double nu;
+    double sigmaave[6];
+    double qave[3];
+    double psai1, psai2;
+    double nrho;
+    double Wmax;
+    double Wmax0;
+};
 
 class Grid : protected Pointers {
   friend class GridCommMacro;
@@ -155,14 +164,7 @@ class Grid : protected Pointers {
                               // entire cell volume for split cell
     double weight;            // fnum weighting for this cell
 
-    double nu;
-    double sigmaave[6];
-    double qave[3];
-    double psai1, psai2;
-    double nrho;
-    double v_mpv;
-    double Wmax;
-    double Wmax0;
+    NoCommMacro macro;
 
   };
 

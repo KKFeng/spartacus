@@ -15,7 +15,6 @@
 #include "mpi.h"
 #include "sparta.h"
 #include "input.h"
-#include "unistd.h"
 
 using namespace SPARTA_NS;
 
@@ -25,7 +24,6 @@ using namespace SPARTA_NS;
 
 int main(int argc, char **argv)
 {
-  sleep(15);
   MPI_Init(&argc,&argv);
 
   SPARTA *sparta = new SPARTA(argc,argv,MPI_COMM_WORLD);

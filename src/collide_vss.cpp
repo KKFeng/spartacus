@@ -12,7 +12,6 @@
    See the README file in the top-level SPARTA directory.
 ------------------------------------------------------------------------- */
 
-
 #include "math.h"
 #include "string.h"
 #include "stdlib.h"
@@ -29,12 +28,9 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
-#include <iostream>
-#include <cmath>
 
 using namespace SPARTA_NS;
 using namespace MathConst;
-using namespace std;
 
 enum{NONE,DISCRETE,SMOOTH};            // several files
 enum{CONSTANT,VARIABLE};
@@ -188,7 +184,7 @@ double CollideVSS::attempt_bgk(int icell)
     double dt = update->dt;
     double Pr = update->Pr;
     double bgk_nattempt;
-    double nu = cinfo[icell].nu;
+    double nu = cinfo[icell].macro.nu;
     double np = cinfo[icell].count;
     //double nu1 = cinfo[icell].nu1;
     if (np < 4) 
@@ -582,14 +578,14 @@ void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell, const CommMacro* 
     double* x = ip->x;
 
     double vn[3];
-    double psai1 = cinfo[icell].psai1;
-    double psai2 = cinfo[icell].psai2;
-    double nrho = cinfo[icell].nrho;
+    double psai1 = cinfo[icell].macro.psai1;
+    double psai2 = cinfo[icell].macro.psai2;
+    double nrho = cinfo[icell].macro.nrho;
 
     double v_mpv = 14.4306 * sqrt(T);
     double sigma[6], q[3];
-    for (int i = 0; i < 6; i++) sigma[i] = cinfo[icell].sigmaave[i];
-    for (int i = 0; i < 3; i++) q[i] = cinfo[icell].qave[i];
+    for (int i = 0; i < 6; i++) sigma[i] = cinfo[icell].macro.sigmaave[i];
+    for (int i = 0; i < 3; i++) q[i] = cinfo[icell].macro.qave[i];
     for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * v_mpv;
     double p = (sigma[0] + sigma[1] + sigma[2]) / 3;
     double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
@@ -605,10 +601,10 @@ void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell, const CommMacro* 
         * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
         * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5.0);
 
-    if (W > cinfo[icell].Wmax) cinfo[icell].Wmax = W;
-    if (W > cinfo[icell].Wmax0) cinfo[icell].Wmax0 = W;
+    if (W > cinfo[icell].macro.Wmax) cinfo[icell].macro.Wmax = W;
+    if (W > cinfo[icell].macro.Wmax0) cinfo[icell].macro.Wmax0 = W;
 
-    while (random->uniform() > W / cinfo[icell].Wmax)
+    while (random->uniform() > W / cinfo[icell].macro.Wmax)
     {
         for (int i = 0; i < 3; i++) {
             vn[i] = random->gaussian() * v_mpv;
@@ -626,8 +622,8 @@ void CollideVSS::uspbgk_atom(Particle::OnePart* ip, int icell, const CommMacro* 
             * (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) / nrho / pow(v_mpv, 4)
             * ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2]) / pow(v_mpv, 2) - 5);
 
-        if (W > cinfo[icell].Wmax) cinfo[icell].Wmax = W;
-        if (W > cinfo[icell].Wmax0) cinfo[icell].Wmax0 = W;
+        if (W > cinfo[icell].macro.Wmax) cinfo[icell].macro.Wmax = W;
+        if (W > cinfo[icell].macro.Wmax0) cinfo[icell].macro.Wmax0 = W;
     }
     for (int i = 0; i < 3; i++) vi[i] = vn[i] + v_mac[i];
 }

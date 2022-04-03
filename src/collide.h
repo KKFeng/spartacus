@@ -41,7 +41,6 @@ class Collide : protected Pointers {
   void reset_vremax();
   virtual void collisions();
   virtual void computeMacro();
-  //template < int, int > void move2();
 
   virtual double vremax_init(int, int) = 0;
   virtual double attempt_collision(int, int, double) = 0;

@@ -38,12 +38,8 @@
 #include "math_extra.h"
 #include "memory.h"
 #include "error.h"
-#include "random_park.h"
-#include <iostream>
-#include <cmath>
 
 using namespace SPARTA_NS;
-using namespace std;
 
 enum{XLO,XHI,YLO,YHI,ZLO,ZHI,INTERIOR};         // same as Domain
 enum{PERIODIC,OUTFLOW,REFLECT,SURFACE,AXISYM};  // same as Domain
@@ -120,7 +116,6 @@ Update::~Update()
   delete [] blist_active;
   delete [] ulist_surfcollide;
   delete ranmaster;
-  delete random;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -158,12 +153,6 @@ void Update::init()
   if (runflag == 0) return;
   first_update = 1;
 
-  // added for using random->uniform in update.cpp
-
-  random = new RanPark(ranmaster->uniform());
-  double seed = ranmaster->uniform();
-  random->reset(seed, comm->me, 100);
-
   // choose the appropriate move method
 
   if (domain->dimension == 3) {
@@ -173,13 +162,8 @@ void Update::init()
     if (surf->exist) moveptr = &Update::move<1,1>;
     else moveptr = &Update::move<1,0>;
   } else if (domain->dimension == 2) {
-      if (surf->exist) 
-      {
-          moveptr = &Update::move<2, 1>;
-      }
-      else {
-          moveptr = &Update::move<2, 0>;
-      }
+      if (surf->exist) moveptr = &Update::move<2,1>;
+      else moveptr = &Update::move<2,0>;
   }
 
   // check gravity vector
@@ -280,10 +264,8 @@ void Update::run(int nsteps)
     if (collide) {
       particle->sort();
       timer->stamp(TIME_SORT);
-      collide->computeMacro();
 
       collide->collisions();
-
       timer->stamp(TIME_COLLIDE);
     }
 
@@ -394,7 +376,6 @@ template < int DIM, int SURF > void Update::move()
             }
 
             x = particles[i].x;
-            //cout << x[0] << endl;
             v = particles[i].v;
             exclude = -1;
 
@@ -1009,7 +990,7 @@ template < int DIM, int SURF > void Update::move()
                     if (bflag == OUTFLOW) {
                         particles[i].flag = PDISCARD;
                         nexit_one++;
-                        //break;
+                        break;
 
                     } else if (bflag == PERIODIC) {
                         if (nflag == NPBCHILD) {
@@ -1044,7 +1025,7 @@ template < int DIM, int SURF > void Update::move()
                     } else if (bflag == SURFACE) {
                         if (ipart == NULL) {
                             particles[i].flag = PDISCARD;
-                            //break;
+                            break;
                         } else if (jpart) {
                             jpart->flag = PSURF;
                             jpart->dtremain = dtremain;
