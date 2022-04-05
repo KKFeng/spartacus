@@ -40,20 +40,16 @@ class Collide : protected Pointers {
   void modify_params(int, char **);
   void reset_vremax();
   virtual void collisions();
-  virtual void computeMacro();
 
   virtual double vremax_init(int, int) = 0;
   virtual double attempt_collision(int, int, double) = 0;
   virtual double attempt_collision(int, int, int, double) = 0;
-  virtual double attempt_bgk(int) = 0;
-  virtual int dsmcorbgk(int, int, double, double) = 0;
   virtual int test_collision(int, int, int,
 			     Particle::OnePart *, Particle::OnePart *) = 0;
   virtual void setup_collision(Particle::OnePart *, Particle::OnePart *) = 0;
   virtual int perform_collision(Particle::OnePart *&, Particle::OnePart *&,
                                 Particle::OnePart *&) = 0;
-  virtual void perform_bgk(Particle::OnePart*&, int, const class CommMacro*) = 0;
-  
+
   virtual double extract(int, int, const char *) {return 0.0;}
 
   virtual int pack_grid_one(int, char *, int);
@@ -96,7 +92,6 @@ class Collide : protected Pointers {
   int vre_first;      // 1 for first run after collision style is defined
   int vre_start;      // 1 if reset vre params at start of each run
   int vre_every;      // reset vre params every this many steps
-  int W_every;
   bigint vre_next;    // next timestep to reset vre params on
   int remainflag;     // 1 if remain defined, else use random fraction
 
@@ -132,18 +127,6 @@ class Collide : protected Pointers {
   int copymode;          // 1 if copy of class (prevents deallocation of
                          //   base class when child copy is destroyed)
   int kokkos_flag;        // 1 if collide method supports Kokkos
-
-  // bgk model
-  int esbgkflag;
-  int sbgkflag;
-  int bgkflag;
-  int ubgkflag;
-  int qaveflag;
-  double matom;
-  double omegaatom;
-  double murefatom;
-  double Trefatom;
-  double ktrefomiga2muref;
 
   // inline functions
   // add particle N to Igroup and set its g2p entry in plist to K
