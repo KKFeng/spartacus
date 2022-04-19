@@ -26,15 +26,17 @@ namespace SPARTA_NS {
 struct CommMacro {
     double v[3];
     double Temp;
+    double theta; //theta = RT = mean(C^2)/3
 };
 struct NoCommMacro {
-    double nu;
-    double sigmaave[6];
-    double qave[3];
-    double psai1, psai2;
-    double nrho;
+    double sum_vi[3];
+                       //(0, 1, 2, 3, 4, 5)
+    double sum_vij[6]; //(00,11,22,01,02,12)
+    double sum_C2vi[3];
+    double sigma_ij[6]; // shear stress, time-ave (00,11,22,01,02,12)
+    double qi[3]; // heat flux ,time-ave
     double Wmax;
-    double Wmax0;
+    double coef_A, coef_B, tao;
 };
 
 class Grid : protected Pointers {
