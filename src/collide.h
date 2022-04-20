@@ -40,20 +40,16 @@ class Collide : protected Pointers {
   void modify_params(int, char **);
   void reset_vremax();
   virtual void collisions();
-  //virtual void computeMacro();
 
   virtual double vremax_init(int, int) = 0;
   virtual double attempt_collision(int, int, double) = 0;
   virtual double attempt_collision(int, int, int, double) = 0;
-  //virtual double attempt_bgk(int) = 0;
-  //virtual int dsmcorbgk(int, int, double, double) = 0;
   virtual int test_collision(int, int, int,
 			     Particle::OnePart *, Particle::OnePart *) = 0;
   virtual void setup_collision(Particle::OnePart *, Particle::OnePart *) = 0;
   virtual int perform_collision(Particle::OnePart *&, Particle::OnePart *&,
                                 Particle::OnePart *&) = 0;
-  //virtual void perform_bgk(Particle::OnePart*&, int, const class CommMacro*) = 0;
-  
+
   virtual double extract(int, int, const char *) {return 0.0;}
 
   virtual int pack_grid_one(int, char *, int);
