@@ -241,8 +241,6 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
   c->csurfs = NULL;
   c->nsplit = 1;
   c->isplit = -1;
-  //c->macro.Temp = 0.0;
-  //for (int i = 0; i < 3; i++) c->macro.v[i] = 0;
   
   ChildInfo *ci = &cinfo[nlocal];
   ci->count = 0;

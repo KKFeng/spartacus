@@ -17,6 +17,11 @@
 CollideStyle(bgk,CollideBGK)
 
 #else
+#ifdef COMMAND_CLASS
+
+CommandStyle(collide_bgk_modify, CollideBGKModify)
+
+#else
 
 #ifndef SPARTA_COLLIDE_BGK_H
 #define SPARTA_COLLIDE_BGK_H
@@ -28,6 +33,7 @@ namespace SPARTA_NS {
 
 class CollideBGK : public Collide {
  public:
+  friend class CollideBGKModify;
   CollideBGK(class SPARTA *, int, char **);
   virtual ~CollideBGK();
   virtual void init();
@@ -35,24 +41,22 @@ class CollideBGK : public Collide {
 
   double vremax_init(int, int);
   virtual double attempt_collision(int, int, double);
-  double attempt_collision(int, int, int, double);
+  double attempt_collision(int, int, int, double) { return 0.0; };
   virtual int test_collision(int, int, int, Particle::OnePart*, Particle::OnePart*) { return 1; };
   virtual void setup_collision(Particle::OnePart*, Particle::OnePart*) { return; };
   virtual int perform_collision(Particle::OnePart *&, Particle::OnePart *&,
                         Particle::OnePart *&);
-  virtual void collisions_BGK();
   void perform_uspbgk(Particle::OnePart*, int, const class CommMacro*);
   void perform_bgkbgk(Particle::OnePart*, int, const class CommMacro*);
   void perform_esbgk(Particle::OnePart*, int, const class CommMacro*);
   void perform_sbgk(Particle::OnePart*, int, const class CommMacro*);
   void conservV();
-  double extract(int, int, const char *);
+  double extract(int, int, const char*) { return 0.0; };
 
   struct Params {             // BGK model parameters
-      double diam;
-      double omega;
-      double tref;
-      double alpha;
+      double mu_ref;          // reference viscosity
+      double omega;           // mu ~ T^omega
+      double T_ref;           // reference temperature
   };
   struct ConservMacro
   {
@@ -63,11 +67,14 @@ class CollideBGK : public Collide {
  protected:
   int nmaxconserv;
   ConservMacro* conservMacro;
-  //double* prefactor;          // static portion of collision attempt frequency
+  
   Params *params;             // BGK params for each species
-  double resetWmax;          // coefficient to reduce Wmax, default = 0.9999, only reset if >0
   int nparams;                // # of per-species params read in
+  double resetWmax_tmpflag;    // tmp flag to decide whether resetWmax in current cell
+  double resetWmax;           // coefficient to reduce Wmax, default = 0.9999,
+                              // if resetWmax <= 0, don't do reset
   int bgk_mod;
+  double Pr;                  // Prantl number
   double time_ave_coef;
   template < int > void computeMacro();
   void read_param_file(char*);
@@ -75,7 +82,15 @@ class CollideBGK : public Collide {
 
 };
 
+class CollideBGKModify : protected Pointers {
+public:
+    CollideBGKModify(class SPARTA*);
+    ~CollideBGKModify();
+    void command(int, char**);
+};
+
 }
 
+#endif
 #endif
 #endif

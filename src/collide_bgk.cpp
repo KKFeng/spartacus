@@ -15,7 +15,6 @@
 #include "math.h"
 #include "string.h"
 #include "stdlib.h"
-#include "collide_vss.h"
 #include "grid.h"
 #include "update.h"
 #include "particle.h"
@@ -39,7 +38,10 @@ enum { USP, BGK, ESBGK, SBGK };
 CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     Collide(sparta, narg, arg)
 {
-    if (narg != 4) error->all(FLERR, "Illegal collide command");
+    if (narg < 4) error->all(FLERR, "Illegal collide command");
+
+    nmaxconserv = 0;
+    conservMacro = NULL;
 
     // proc 0 reads file to extract params for current species
     // broadcasts params to all procs
@@ -63,6 +65,10 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
         bgk_mod = SBGK;
     }
     else error->all(FLERR, "Illegal collide_bgk command: no such mod");
+    if (narg > 4) {
+        CollideBGKModify bgk_modify = CollideBGKModify(sparta);
+        bgk_modify.command(narg - 4, arg + 4);
+    }
 
     if (comm->me == 0) read_param_file(arg[3]);
     MPI_Bcast(params, nparams * sizeof(Params), MPI_BYTE, 0, world);
@@ -85,35 +91,37 @@ CollideBGK::~CollideBGK()
     //memory->destroy(prefactor);
 }
 
+/* ----------------------------------------------------------------------
+* currently CollideBGK::init() will do nothing but call Collide::init();
+   ---------------------------------------------------------------------- */
+
 void CollideBGK::init()
 {
-    // initially read-in per-species params must match current species list
-
-    if (nparams != particle->nspecies)
-        error->all(FLERR, "BGK parameters do not match current species");
-
     Collide::init();
 }
 
+/* ----------------------------------------------------------------------
+* perform BGK-like collisions of all child cells I own, call perform_***bgk()
+* to do per-particle job according to different bgk_mod
+------------------------------------------------------------------------- */
+
 void CollideBGK::collisions()
 {
-    int i, j, k, m, n, ip, np;
-    int nattempt, reactflag;
-    double attempt, volume;
-    Particle::OnePart* ipart, * jpart, * kpart;
+    // computing macro quantities for each model
+    if (bgk_mod == USP) computeMacro<USP>();
+    else if (bgk_mod == BGK) computeMacro<BGK>();
+    else if (bgk_mod == SBGK) computeMacro<SBGK>();
+    else if (bgk_mod == ESBGK) computeMacro<ESBGK>();
 
     // loop over cells I own
-
     Grid::ChildInfo* cinfo = grid->cinfo;
-
     Particle::OnePart* particles = particle->particles;
     int* next = particle->next;
-
     for (int icell = 0; icell < nglocal; icell++) {
-        np = cinfo[icell].count;
+        int np = cinfo[icell].count;
         if (np <= 3) continue;
-        ip = cinfo[icell].first;
-        volume = cinfo[icell].volume / cinfo[icell].weight;
+        int ip = cinfo[icell].first;
+        double volume = cinfo[icell].volume / cinfo[icell].weight;
         if (volume == 0.0) error->one(FLERR, "Collision cell volume is zero");
 
         // setup particle list for this cell
@@ -124,34 +132,31 @@ void CollideBGK::collisions()
             memory->create(plist, npmax, "collide:plist");
         }
 
-        if (bgk_mod == USP) computeMacro<USP>();
-        else if (bgk_mod == BGK) computeMacro<BGK>();
-        else if (bgk_mod == SBGK) computeMacro<SBGK>();
-        else if (bgk_mod == ESBGK) computeMacro<ESBGK>();
-
         Grid::ChildCell* cells = grid->cells;
         double bgk_attempt = attempt_collision(icell,0,cinfo[icell].macro.tao);
         int bgk_nattempt = static_cast<int> (bgk_attempt + (random->uniform()));
 
-        n = 0;
+        int n = 0;
         while (ip >= 0) {
             plist[n++] = ip;
             ip = next[ip];
         }
+        // Randomly swap particle lists, select the first bgk_nattempt part to relax
         if (bgk_nattempt < np / 2) {
-            for (i = 0; i < bgk_nattempt; i++) {
+            for (int i = 0; i < bgk_nattempt; i++) {
                 int t = i + (np - i) * random->uniform();
                 std::swap(plist[i], plist[t]);
             }
         }
         else {
-            for (i = np - 1; i > bgk_nattempt - 1; i--) {
+            for (int i = np - 1; i > bgk_nattempt - 1; i--) {
                 int t = i * random->uniform();
                 std::swap(plist[i], plist[t]);
             }
         }
-        for (i = 0;i < bgk_nattempt; ++i) {        
-            ipart = &particles[plist[i]];
+        resetWmax_tmpflag = 1;
+        for (int i = 0;i < bgk_nattempt; ++i) {
+            Particle::OnePart* ipart = &particles[plist[i]];
             const CommMacro* interMacro = grid->gridCommMacro->interpolation(ipart);
             if ((!interMacro) || (!(interMacro->Temp > 0))) {
                 if (!interMacro)
@@ -162,20 +167,27 @@ void CollideBGK::collisions()
             else if (bgk_mod == BGK) perform_bgkbgk(ipart, icell, interMacro);
             else if (bgk_mod == SBGK) perform_sbgk(ipart, icell, interMacro);
             else if (bgk_mod == ESBGK) perform_esbgk(ipart, icell, interMacro);
-        }   
+        }  
+        if (resetWmax > 0.0 && resetWmax_tmpflag) 
+            cinfo[icell].macro.Wmax *= resetWmax;
     }
-
+    conservV();
 }
+
+/* ----------------------------------------------------------------------
+* Scale particles' new velocity to satisfy momentum & energy conservation
+------------------------------------------------------------------------- */
+
 void CollideBGK::conservV() {
     int nlocal = grid->nlocal;
+    if (!(nmaxconserv >= 0)) error->one(FLERR,
+        "CollideBGK::conservV(): !(nmaxconserv >= 0)");
     if (nlocal > nmaxconserv) {
         while (nlocal > nmaxconserv) nmaxconserv += DELTAPART;
         memory->destroy(conservMacro);
         memory->create(conservMacro, nmaxconserv, "collideBGK:postmacro");
     }
-    ConservMacro tmpmacro{ 0.0 };
     for (int i = 0; i < nlocal; ++i) {
-        memcpy(conservMacro + i, &tmpmacro, sizeof(ConservMacro));
         NoCommMacro& nmacro = grid->cinfo[i].macro;
         nmacro.sum_vi[0] = nmacro.sum_vi[1] = nmacro.sum_vi[2] = 0.0;
         nmacro.sum_vij[0] = 0.0;
@@ -189,12 +201,14 @@ void CollideBGK::conservV() {
         }
     }
     for (int icell = 0; icell < nlocal; ++icell) {
-        NoCommMacro& nmacro = grid->cinfo[icell].macro;
         double np = grid->cinfo[icell].count;
-        for (int i = 0; i < 3; ++i) {
-            conservMacro[icell].v_origin[i] = grid->cells[icell].macro.v[i];
-            conservMacro[icell].v_post[i] = nmacro.sum_vi[i]/np;
-        }
+        if (np <= 3) continue;
+        NoCommMacro& nmacro = grid->cinfo[icell].macro;
+        memcpy(conservMacro[icell].v_origin,
+            grid->cells[icell].macro.v, sizeof(double) * 3);         
+        memcpy(conservMacro[icell].v_post,
+            nmacro.sum_vi, sizeof(double) * 3);
+        for (int i = 0; i < 3; ++i) conservMacro[icell].v_post[i] /= np;
         double theta_post = (nmacro.sum_vij[0]
             - (nmacro.sum_vi[0] * nmacro.sum_vi[0] + nmacro.sum_vi[1] * nmacro.sum_vi[1]
                 + nmacro.sum_vi[2] * nmacro.sum_vi[2]) / np) / np / 3;
@@ -209,10 +223,14 @@ void CollideBGK::conservV() {
     }
 }
 
+/* ----------------------------------------------------------------------
+* perform per-part relaxation in differen mod: USP-BGK, original BGK, ES-BGK
+* & SBGK, called by CollideBGK::collisions()
+------------------------------------------------------------------------- */
+
 void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacro* interMacro)
 {
     Grid::ChildInfo* cinfo = grid->cinfo;
-    const double* pij = cinfo[icell].macro.sigma_ij;
     const double* sigma_ij = cinfo[icell].macro.sigma_ij;
     const double* q = cinfo[icell].macro.qi;
     double vn[3];
@@ -232,31 +250,84 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
 
         double W = 1.0 + cinfo[icell].macro.coef_A * sigmacc +
             cinfo[icell].macro.coef_B * qkck;
-        if (random->uniform() < W / cinfo[icell].macro.Wmax) {
-            if (W > cinfo[icell].macro.Wmax) cinfo[icell].macro.Wmax = W;
-            else if (resetWmax > 0.0) cinfo[icell].macro.Wmax *= resetWmax;
+        if (W > cinfo[icell].macro.Wmax) {
+            cinfo[icell].macro.Wmax = W;
+            resetWmax_tmpflag = 0;
             break;
         }
+        if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
     }
     for (int i = 0; i < 3; i++) ip->v[i] = vn[i] + interMacro->v[i];
 
     
 }
 
+/* ---------------------------------------------------------------------- */
+
+void CollideBGK::perform_bgkbgk(Particle::OnePart* ip, int , const CommMacro* interMacro)
+{
+    for (int i = 0; i < 3; i++) 
+        ip->v[i] = random->gaussian() * sqrt(interMacro->theta) + interMacro->v[i];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void CollideBGK::perform_esbgk(Particle::OnePart* ip, int icell, const CommMacro* interMacro)
+{
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    //(0, 1, 2, 3, 4, 5)
+    //(00,11,22,01,02,12)
+    const double* Sij = cinfo[icell].macro.sigma_ij;
+    double vn[3];
+    for (int i = 0; i < 3; i++)
+        vn[i] = random->gaussian() * sqrt(interMacro->theta);
+    ip->v[0] = vn[0]*Sij[0] + vn[1]*Sij[3] + vn[2]*Sij[4] +interMacro->v[0];
+    ip->v[1] = vn[0]*Sij[3] + vn[1]*Sij[1] + vn[2]*Sij[5] +interMacro->v[0];
+    ip->v[2] = vn[0]*Sij[4] + vn[1]*Sij[5] + vn[2]*Sij[2] +interMacro->v[0];
+}
+
+/* ---------------------------------------------------------------------- */
+
+void CollideBGK::perform_sbgk(Particle::OnePart* ip, int icell, const CommMacro* interMacro)
+{
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    const double* q = cinfo[icell].macro.qi;
+    double vn[3];
+    while (true)
+    {
+        for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(interMacro->theta);
+        double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
+        double qkck = (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) *
+            ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2])
+                / interMacro->theta - 5);
+        double W = 1.0 + cinfo[icell].macro.coef_B * qkck;
+        if (W > cinfo[icell].macro.Wmax) {
+            cinfo[icell].macro.Wmax = W;
+            resetWmax_tmpflag = 0;
+            break;
+        }
+        if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
+    }
+    for (int i = 0; i < 3; i++) ip->v[i] = vn[i] + interMacro->v[i];
+}
+
 /* ----------------------------------------------------------------------
    estimate a good value for vremax for a group pair in any grid cell
    called by Collide parent in init()
 
-   NOTE: vremax is useless in BGK model
+   NOTE: vremax is useless in BGK model, so always return 1.0
          
 ------------------------------------------------------------------------- */
 
 double CollideBGK::vremax_init(int igroup, int jgroup)
 {
-    return 0.0;
+    return 1.0;
 }
 
-/* ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+* calculate number of part need relaxation this cell, 
+* based on different bgk_mod
+------------------------------------------------------------------------- */
 
 double CollideBGK::attempt_collision(int icell, int, double tao)
 {
@@ -268,7 +339,7 @@ double CollideBGK::attempt_collision(int icell, int, double tao)
         if (np < 4) return 0;
     }
     double bgk_nattempt;
-    if (bgk_mod == ESBGK) bgk_nattempt = update->Pr * np * (1 - exp(-tao));
+    if (bgk_mod == ESBGK) bgk_nattempt = Pr * np * (1 - exp(-tao));
     else  bgk_nattempt = np * (1 - exp(-tao));
     return MIN(bgk_nattempt, (double)cinfo[icell].count);
 }
@@ -287,6 +358,7 @@ int CollideBGK::perform_collision(Particle::OnePart*&,
 /* ----------------------------------------------------------------------
   compute macro quantities for all cells
   including velocity, temprature, shear stress and heat flux
+  NOTE: Some computations may be omitted depending on BGK model
 ------------------------------------------------------------------------- */
 
 template < int MOD > void CollideBGK::computeMacro() 
@@ -337,7 +409,9 @@ template < int MOD > void CollideBGK::computeMacro()
         // Currently assume all particles have same ispecies
         Particle::Species& 
             species = particle->species[particles[cinfo.first].ispecies];
-        double factor = species.mass * update->fnum * cinfo.weight / cinfo.volume;
+        double mass = particle->species[particles[cinfo.first].ispecies].mass;
+        Params& ps = params[particles[cinfo.first].ispecies];
+        double factor = mass * update->fnum * cinfo.weight / cinfo.volume;
         double pij[6]{}, qi[3]{};
         double* sum_vij = mean_nmacro.sum_vij;
         double* v = cmacro.v;
@@ -347,12 +421,12 @@ template < int MOD > void CollideBGK::computeMacro()
         double V_2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
         double sum_C2 = sum_vij[0] + sum_vij[1] + sum_vij[2];
         cmacro.theta = (sum_C2 / np - V_2) / 3;
-        cmacro.Temp = species.mass / update->boltz * cmacro.theta;
+        cmacro.Temp = mass / update->boltz * cmacro.theta;
         double nrho = cinfo.count * update->fnum * cinfo.weight / cinfo.volume;
-        mean_nmacro.tao = nrho * update->boltz * pow(species.Tref, species.omega)
-            * pow(cmacro.Temp, 1 - species.omega) * update->dt / species.muref;
+        mean_nmacro.tao = nrho * update->boltz * pow(ps.T_ref, ps.omega)
+            * pow(cmacro.Temp, 1 - ps.omega) * update->dt / ps.mu_ref;
         double p = 0.0;
-        if (MOD == USP || MOD == ESBGK) {
+        if (MOD == USP) {
             for (int i = 0; i < 3; ++i) {
                 pij[i] = factor * (sum_vij[i] - np * v[i] * v[i]);
             }
@@ -365,7 +439,25 @@ template < int MOD > void CollideBGK::computeMacro()
                 mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
                     + (pij[i] - p * (i < 3 ? 1.0 : 0.0)) * (1 - time_ave_coef);
             }
-        }        
+        }
+        // NOTE: if MOD == ESBGK, sigma_ij is actually Sij in esbgk mod, no time-ave
+        else if (MOD == ESBGK) {
+            double* vij = mean_nmacro.sum_vij;
+            double* vi = mean_nmacro.sum_vi;
+            double pf_Pr = (1 - Pr) / (Pr * 2);
+            double pf_T = ((vij[0] + vij[1] + vij[2]) -
+                (vi[0] * vi[0] + vi[1] * vi[1] + vi[2] * vi[2]) / np) / 3;
+            for (int i = 0; i < 3; ++i) {
+                mean_nmacro.sigma_ij[i] = 1 + pf_Pr - pf_Pr / pf_T *
+                    (vij[i] - vi[i] * vi[i] / np);
+            }
+            mean_nmacro.sigma_ij[3] = - pf_Pr / pf_T *
+                (vij[3] - vi[0] * vi[1] / np);            
+            mean_nmacro.sigma_ij[4] = - pf_Pr / pf_T *
+                (vij[4] - vi[0] * vi[2] / np);            
+            mean_nmacro.sigma_ij[3] = - pf_Pr / pf_T *
+                (vij[5] - vi[1] * vi[2] / np);
+        }
         if (MOD == USP || MOD == SBGK) {
             qi[0] = factor / 2 * (mean_nmacro.sum_C2vi[0]
                 - v[0] * sum_C2 + 2 * np * V_2 * v[0]
@@ -382,12 +474,16 @@ template < int MOD > void CollideBGK::computeMacro()
                 mean_nmacro.qi[i] = mean_nmacro.qi[i] * time_ave_coef
                     + qi[i] * (1.0 - time_ave_coef);
             }
-        }
-        if (MOD == USP) {
-            double p_theta = p * cmacro.theta;
-            double tao_coth = mean_nmacro.tao / 2 * (1 + 2 / (exp(mean_nmacro.tao) + 1));
-            mean_nmacro.coef_A = (1 - tao_coth) / (2 * p_theta);
-            mean_nmacro.coef_B = (1 - update->Pr * tao_coth) / (5 * p_theta);
+            // prefactor of weight in Acceptance-Rejection Method
+            if (MOD == USP) {
+                double p_theta = p * cmacro.theta;
+                double tao_coth = mean_nmacro.tao / 2 * (1 + 2 / (exp(mean_nmacro.tao) + 1));
+                mean_nmacro.coef_A = (1 - tao_coth) / (2 * p_theta);
+                mean_nmacro.coef_B = (1 - Pr * tao_coth) / (5 * p_theta);
+            }
+            else if (MOD == SBGK) {
+                mean_nmacro.coef_B = (1 - Pr) / (5 * p * cmacro.theta);
+            }
         }
     }
 
@@ -396,7 +492,6 @@ template < int MOD > void CollideBGK::computeMacro()
         if (strcmp(surf->sc[isc]->style, "diffuse") != 0) continue;
         CommMacro* cmacro = surf->sc[isc]->returnComm();
         if (cmacro && cmacro->theta < 0 && cmacro->Temp>0) {
-
             cmacro->theta == cmacro->Temp / mass * update->boltz;
         }
     }
@@ -405,7 +500,6 @@ template < int MOD > void CollideBGK::computeMacro()
     grid->gridCommMacro->runComm();
 
 }
-
 
 /* ----------------------------------------------------------------------
    read list of species defined in species file
@@ -427,7 +521,7 @@ void CollideBGK::read_param_file(char* fname)
     // well as user-selected average
 
     for (int i = 0; i < nparams; i++) {
-        params[i].diam = -1.0;
+        params[i].mu_ref = -1.0;
     }
 
     // read file line by line
@@ -452,11 +546,10 @@ void CollideBGK::read_param_file(char* fname)
 
         else {
             if (nwords < REQWORDS + 1)  // one extra word in cross-species lines
-                error->one(FLERR, "Incorrect line format in VSS parameter file");
-            params[isp].diam  = atof(words[1]);
+                error->one(FLERR, "Incorrect line format in BGK parameter file");
+            params[isp].mu_ref  = atof(words[1]);
             params[isp].omega = atof(words[2]);
-            params[isp].tref  = atof(words[3]);
-            params[isp].alpha = atof(words[4]);
+            params[isp].T_ref  = atof(words[3]);
         }
     }
 
@@ -466,7 +559,7 @@ void CollideBGK::read_param_file(char* fname)
     // check that params were read for all species
     for (int i = 0; i < nparams; i++) {
 
-        if (params[i].diam < 0.0) {
+        if (params[i].mu_ref < 0.0) {
             char str[128];
             sprintf(str, "Species %s did not appear in BGK parameter file",
                 particle->species[i].id);
@@ -478,6 +571,7 @@ void CollideBGK::read_param_file(char* fname)
 /* ----------------------------------------------------------------------
    parse up to n=maxwords whitespace-delimited words in line
    store ptr to each word in words and count number of words
+   same as CollideVSS::wordparse
 ------------------------------------------------------------------------- */
 
 int CollideBGK::wordparse(int maxwords, char* line, char** words)
@@ -491,4 +585,57 @@ int CollideBGK::wordparse(int maxwords, char* line, char** words)
     }
     return nwords;
 }
+
+/* ---------------------------------------------------------------------- */
+
+CollideBGKModify::CollideBGKModify(SPARTA* sparta) : Pointers(sparta){}
+
+/* ---------------------------------------------------------------------- */
+
+CollideBGKModify::~CollideBGKModify(){}
+
+/* ----------------------------------------------------------------------
+* process collide_bgk_modify command, included in style_command.h
+------------------------------------------------------------------------- */
+
+void CollideBGKModify::command(int narg, char** arg)
+{
+    if (strcmp(collide->style, "bgk") != 0) {
+        error->all(FLERR,
+            "Using collide_bgk_modify command when collide.style != bgk");
+    }
+    if (narg == 0) error->all(FLERR, "Illegal collide_modify command");
+    CollideBGK* collideBGK = dynamic_cast<CollideBGK*>(collide);
+    if (!collideBGK) {
+        error->all(FLERR, "CollideBGKModify: dynamic_cast fault");
+    }
+    int iarg = 0;
+    while (iarg < narg) {
+        if (strcmp(arg[iarg], "resetWmax") == 0) {
+            if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
+            double reset = atof(arg[iarg + 1]);
+            if (reset <= 0) {
+                collideBGK->resetWmax = 0.0;
+            }
+            else if (reset >= 1.0) {
+                error->all(FLERR, 
+                    "Illegal collide_bgk_modify command: resetWmax > 1");
+            }
+            else {
+                collideBGK->resetWmax = reset;
+            }
+            iarg += 2;
+        }     
+        else if (strcmp(arg[iarg], "Pr") == 0) {
+            if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
+            collideBGK->Pr = atof(arg[iarg + 1]);
+            if (collideBGK->Pr <= 0) 
+                error->all(FLERR, "Illegal collide_bgk_modify Prantl number");
+            iarg += 2;
+        }
+        else error->all(FLERR, "Illegal collide_bgk_modify command");
+
+    }
+}
+
 

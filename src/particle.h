@@ -40,9 +40,6 @@ class Particle : protected Pointers {
     int nrottemp,nvibmode;  // # of rotational/vibrational temps/modes defined
     int internaldof;        // 1 if either rotdof or vibdof != 0
     int vibdiscrete_read;   // 1 if species.vib file read for this species
-    double omega;           // omega,added for bgk model
-    double muref;           // reference viscosity
-    double Tref;            // reference temprature
   };
 
   struct RotFile {          // extra rotation info read from rotfile

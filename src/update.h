@@ -34,8 +34,6 @@ class Update : protected Pointers {
   double boltz;          // Boltzmann constant (eng/degree K)
   double mvv2e;          // conversion of mv^2 to energy
 
-  double alpha;           // reference lenth for uspbgk
-  double Pr;
   double fnum;           // ratio of real particles to simulation particles
   double nrho;           // number density of background gas
   double vstream[3];     // streaming velocity of background gas

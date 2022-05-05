@@ -108,8 +108,6 @@ class Grid : protected Pointers {
     int proc;                 // proc that owns this cell
     int ilocal;               // index of this cell on owning proc
                               // must be correct for all ghost cells
-    int macroflag;            // only meaningful for ghost cells,
-                              // 0/1 = no/yes storage T & V from other proc
 
     cellint neigh[6];         // info on 6 neighbor cells that fully overlap faces
                               // order = XLO,XHI,YLO,YHI,ZLO,ZHI
@@ -167,7 +165,6 @@ class Grid : protected Pointers {
     double weight;            // fnum weighting for this cell
 
     NoCommMacro macro;
-
   };
 
   // additional info for owned or ghost split cell or sub cell
@@ -214,7 +211,6 @@ class Grid : protected Pointers {
   ParentLevel *plevels;       // list of parent levels, level = root = simulation box
   ParentCell *pcells;         // list of parent cell neighbors
 
-
   // restart buffers, filled by read_restart
 
   int nlocal_restart;
@@ -222,8 +218,6 @@ class Grid : protected Pointers {
   int *level_restart,*nsplit_restart;
 
   class GridCommMacro* gridCommMacro;
-
-
   // methods
 
   Grid(class SPARTA *);
