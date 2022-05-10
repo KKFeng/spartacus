@@ -47,7 +47,7 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     // broadcasts params to all procs
     time_ave_coef = 0.99;
     nparams = particle->nspecies;
-    resetWmax = 0.9999;
+    resetWmax = 0.99;
     Pr = 0.666667;
     if (nparams == 0)
         error->all(FLERR, "Cannot use collide command with no species defined");
@@ -233,15 +233,16 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
     {
         for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(interMacro->theta);
         double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
-        double sigmacc = sigma_ij[0] * (vn[0] * vn[0] - C_2 / 3)
-            + sigma_ij[1] * (vn[1] * vn[1] - C_2 / 3)
-            + sigma_ij[2] * (vn[2] * vn[2] - C_2 / 3)
-            + 2 * sigma_ij[3] * vn[0] * vn[1]
-            + 2 * sigma_ij[4] * vn[0] * vn[2]
-            + 2 * sigma_ij[5] * vn[2] * vn[1];
+        double trace = C_2/3;
+        double sigmacc = 
+              sigma_ij[0] * (vn[0] * vn[0] - trace)
+            + sigma_ij[1] * (vn[1] * vn[1] - trace)
+            + sigma_ij[2] * (vn[2] * vn[2] - trace)
+            + sigma_ij[3] * vn[0] * vn[1] * 2
+            + sigma_ij[4] * vn[0] * vn[2] * 2
+            + sigma_ij[5] * vn[1] * vn[2] * 2;
         double qkck = (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) *
-            ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2])
-                / interMacro->theta - 5);
+            (C_2 / interMacro->theta - 5);
 
         double W = 1.0 + cinfo[icell].macro.coef_A * sigmacc +
             cinfo[icell].macro.coef_B * qkck;
@@ -293,8 +294,7 @@ void CollideBGK::perform_sbgk(Particle::OnePart* ip, int icell, const CommMacro*
         for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(interMacro->theta);
         double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
         double qkck = (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) *
-            ((vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2])
-                / interMacro->theta - 5);
+            (C_2 / interMacro->theta - 5);
         double W = 1.0 + cinfo[icell].macro.coef_B * qkck;
         if (W > cinfo[icell].macro.Wmax) {
             cinfo[icell].macro.Wmax = W;
@@ -421,7 +421,7 @@ template < int MOD > void CollideBGK::computeMacro()
         mean_nmacro.tao = nrho * update->boltz * pow(ps.T_ref, ps.omega)
             * pow(cmacro.Temp, 1 - ps.omega) * update->dt / ps.mu_ref;
         double p = 0.0;
-        if (MOD == USP) {
+        if (MOD == USP|| MOD == SBGK) {
             for (int i = 0; i < 3; ++i) {
                 pij[i] = factor * (sum_vij[i] - np * v[i] * v[i]);
             }
@@ -430,29 +430,14 @@ template < int MOD > void CollideBGK::computeMacro()
             pij[5] = factor * (sum_vij[5] - np * v[1] * v[2]);
             // time-average pij
             p = (pij[0] + pij[1] + pij[2]) / 3.0;
-            for (int i = 0; i < 6; ++i) {
-                mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
-                    + (pij[i] - p * (i < 3 ? 1.0 : 0.0)) * (1 - time_ave_coef);
-            }
-        }
-        // NOTE: if MOD == ESBGK, sigma_ij is actually Sij in esbgk mod, no time-ave
-        else if (MOD == ESBGK) {
-            double* vi = mean_nmacro.sum_vi;
-            double pf_Pr = (1.0 - Pr) / (Pr * 2.0);
-            double pf_T = ((sum_vij[0] + sum_vij[1] + sum_vij[2]) -
-                (vi[0] * vi[0] + vi[1] * vi[1] + vi[2] * vi[2]) / np) / 3.0;
             for (int i = 0; i < 3; ++i) {
-                mean_nmacro.sigma_ij[i] = 1 + pf_Pr - pf_Pr / pf_T *
-                    (sum_vij[i] - vi[i] * vi[i] / np);
+                mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
+                    + (pij[i] - p) * (1 - time_ave_coef);
+            }            
+            for (int i = 3; i < 6; ++i) {
+                mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
+                    + pij[i] * (1 - time_ave_coef);
             }
-            mean_nmacro.sigma_ij[3] = - pf_Pr / pf_T *
-                (sum_vij[3] - vi[0] * vi[1] / np);            
-            mean_nmacro.sigma_ij[4] = - pf_Pr / pf_T *
-                (sum_vij[4] - vi[0] * vi[2] / np);            
-            mean_nmacro.sigma_ij[5] = - pf_Pr / pf_T *
-                (sum_vij[5] - vi[1] * vi[2] / np);
-        }
-        if (MOD == USP || MOD == SBGK) {
             qi[0] = factor / 2 * (mean_nmacro.sum_C2vi[0]
                 - v[0] * sum_C2 + 2 * np * V_2 * v[0]
                 - 2 * (v[0] * sum_vij[0] + v[1] * sum_vij[3] + v[2] * sum_vij[4]));
@@ -471,13 +456,30 @@ template < int MOD > void CollideBGK::computeMacro()
             // prefactor of weight in Acceptance-Rejection Method
             if (MOD == USP) {
                 double p_theta = p * cmacro.theta;
-                double tao_coth = mean_nmacro.tao / 2 * (1 + 2 / (exp(mean_nmacro.tao) + 1));
+                double tao_coth = mean_nmacro.tao / 2 * (1 + 2 / (exp(mean_nmacro.tao) - 1));
                 mean_nmacro.coef_A = (1 - tao_coth) / (2 * p_theta);
                 mean_nmacro.coef_B = (1 - Pr * tao_coth) / (5 * p_theta);
             }
             else if (MOD == SBGK) {
                 mean_nmacro.coef_B = (1 - Pr) / (5 * p * cmacro.theta);
             }
+        }
+        // NOTE: if MOD == ESBGK, sigma_ij is actually Sij in esbgk mod, no time-ave
+        else if (MOD == ESBGK) {
+            double* vi = mean_nmacro.sum_vi;
+            double pf_Pr = (1.0 - Pr) / (Pr * 2.0);
+            double pf_T = ((sum_vij[0] + sum_vij[1] + sum_vij[2]) -
+                (vi[0] * vi[0] + vi[1] * vi[1] + vi[2] * vi[2]) / np) / 3.0;
+            for (int i = 0; i < 3; ++i) {
+                mean_nmacro.sigma_ij[i] = 1 + pf_Pr - pf_Pr / pf_T *
+                    (sum_vij[i] - vi[i] * vi[i] / np);
+            }
+            mean_nmacro.sigma_ij[3] = - pf_Pr / pf_T *
+                (sum_vij[3] - vi[0] * vi[1] / np);            
+            mean_nmacro.sigma_ij[4] = - pf_Pr / pf_T *
+                (sum_vij[4] - vi[0] * vi[2] / np);            
+            mean_nmacro.sigma_ij[5] = - pf_Pr / pf_T *
+                (sum_vij[5] - vi[1] * vi[2] / np);
         }
     }
 
