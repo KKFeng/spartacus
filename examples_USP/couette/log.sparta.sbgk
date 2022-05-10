@@ -1,0 +1,181 @@
+SPARTA (20 Nov 2020)
+###########################################################
+# Input script of couette flow example
+# you can change collision ( or relaxtion ) mode by "collide"
+# command below
+#
+# Feng Kai
+# kfeng@buaa.edu.cn
+###########################################################
+seed			12345
+dimension		2
+global			gridcut -1.0 comm/sort yes
+
+boundary		p s p
+
+create_box		0 1 0 4.9542e-6 -0.5 0.5
+Created orthogonal box = (0 0 -0.5) to (1 4.9542e-06 0.5)
+create_grid		1 300 1
+Created 300 child grid cells
+  CPU time = 0.00499761 secs
+  create/ghost percent = 84.7274 15.2726
+
+balance_grid		rcb part
+Balance grid migrated 224 cells
+  CPU time = 0.00114268 secs
+  reassign/sort/migrate/ghost percent = 46.0677 0.269979 19.4601 34.2023
+
+surf_collide		lo diffuse 273 1 translate 337.18 0 0
+bound_modify		ylo collide lo
+
+surf_collide		hi diffuse 273 1 translate -337.18 0 0
+bound_modify		yhi collide hi
+species			ar.species Ar
+mixture			air Ar vstream 0.0 0.0 0.0 temp 273
+
+global			nrho 2.6895e+25
+global			fnum 2.2208e15
+# chose different command line to use different collision mode
+## DSMC
+#collide			vss air ar.vss
+## ES-BGK
+#collide			bgk air esbgk ar.bgk
+## Shakhov-BGK
+collide			bgk air sbgk ar.bgk
+## original BGK
+#collide			bgk air bgk ar.bgk
+## USP-BGK
+#collide			bgk air usp ar.bgk
+
+# collide_bgk_modify is a new command to set some parameter in BGK-like
+# method, can only be used when collide mode is bgk
+#
+# pr_num      global Prandtl Number
+# time_ave    set time-average coefficient of Calculation of Macro Quantity
+#             e.g. <new> = <old> * time_ave + <current> * (1-time_ave)
+# reset_wmax  whether and how to reduce Wmax in accept-reject method
+#             if no W > Wmax this loop in this cell , Wmax *= reset_wmax
+#             ( {f_u = W * f_maxwell} in USP algorithm)
+collide_bgk_modify pr_num 0.66667 time_ave 0.99 reset_wmax 0.99
+
+create_particles	air n 0
+Created 59997 particles
+  CPU time = 0.00500904 secs
+
+stats			1000
+compute			1 grid all air massrho u
+compute			2 thermal/grid all air temp press
+
+stats_style	    step cpu np
+
+timestep 		2.9394e-11
+
+fix			1 ave/grid all 1 10000 10000 c_1[*] c_2[*] #ave running
+dump			1 grid all 10000 data/esbgk.*.dat id yc f_1[*]
+
+run 			50000
+Memory usage per proc in Mbytes:
+  particles (ave,min,max) = 1.6875 1.6875 1.6875
+  grid      (ave,min,max) = 3.38879 3.38879 3.38879
+  surf      (ave,min,max) = 0 0 0
+  total     (ave,min,max) = 5.08774 5.08774 5.08774
+Step CPU Np 
+       0            0    59997 
+    1000    1.4763647    59997 
+    2000    2.8976755    59997 
+    3000     4.462323    59997 
+    4000    6.0693101    59997 
+    5000    7.6180213    59997 
+    6000     9.284438    59997 
+    7000     10.85484    59997 
+    8000    12.360946    59997 
+    9000     13.85766    59997 
+   10000    15.487217    59997 
+   11000    16.993139    59997 
+   12000    18.558328    59997 
+   13000    20.088694    59997 
+   14000    21.726568    59997 
+   15000    23.322042    59997 
+   16000     24.88067    59997 
+   17000    26.512671    59997 
+   18000    28.120522    59997 
+   19000    29.617385    59997 
+   20000    31.210866    59997 
+   21000    32.820449    59997 
+   22000    34.338336    59997 
+   23000    35.897036    59997 
+   24000    37.535065    59997 
+   25000    38.990558    59997 
+   26000     40.43919    59997 
+   27000     41.97476    59997 
+   28000     43.44917    59997 
+   29000    45.100209    59997 
+   30000    46.587616    59997 
+   31000    48.214703    59997 
+   32000    49.708793    59997 
+   33000    51.220953    59997 
+   34000    52.579368    59997 
+   35000    54.162539    59997 
+   36000    55.673911    59997 
+   37000    57.241848    59997 
+   38000    58.688116    59997 
+   39000    60.064186    59997 
+   40000    61.666595    59997 
+   41000    63.299102    59997 
+   42000    64.851197    59997 
+   43000    66.435062    59997 
+   44000    67.989407    59997 
+   45000    69.536196    59997 
+   46000    71.118576    59997 
+   47000    72.776696    59997 
+   48000    74.401033    59997 
+   49000    75.998618    59997 
+   50000     77.56408    59997 
+Loop time of 77.5641 on 4 procs for 50000 steps with 59997 particles
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Move    | 10.977     | 11.454     | 11.94      |  12.5 | 14.77
+Coll    | 32.866     | 35.297     | 37.945     |  38.3 | 45.51
+Sort    | 2.929      | 3.0209     | 3.1125     |   4.2 |  3.89
+Comm    | 13.74      | 17.239     | 20.446     |  73.0 | 22.23
+Modify  | 10.222     | 10.503     | 10.825     |   8.3 | 13.54
+Output  | 0.032002   | 0.036352   | 0.039895   |   1.5 |  0.05
+Other   |            | 0.01454    |            |       |  0.02
+
+Particle moves    = 2999850000 (3B)
+Cells touched     = 4103101723 (4.1B)
+Particle comms    = 10881166 (10.9M)
+Boundary collides = 3980566 (3.98M)
+Boundary exits    = 0 (0K)
+SurfColl checks   = 0 (0K)
+SurfColl occurs   = 0 (0K)
+Surf reactions    = 0 (0K)
+Collide attempts  = 0 (0K)
+Collide occurs    = 0 (0K)
+Reactions         = 0 (0K)
+Particles stuck   = 0
+
+Particle-moves/CPUsec/proc: 9.66894e+06
+Particle-moves/step: 59997
+Cell-touches/particle/step: 1.36777
+Particle comm iterations/step: 1
+Particle fraction communicated: 0.00362724
+Particle fraction colliding with boundary: 0.00132692
+Particle fraction exiting boundary: 0
+Surface-checks/particle/step: 0
+Surface-collisions/particle/step: 0
+Surf-reactions/particle/step: 0
+Collision-attempts/particle/step: 0
+Collisions/particle/step: 0
+Reactions/particle/step: 0
+
+Particles: 14999.2 ave 15905 max 13985 min
+Histogram: 1 1 0 0 0 0 0 0 0 2
+Cells:      75 ave 75 max 75 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
+GhostCell: 225 ave 225 max 225 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
+EmptyCell: 0 ave 0 max 0 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
