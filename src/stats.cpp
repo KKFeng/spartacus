@@ -583,7 +583,7 @@ void Stats::set_fields(int narg, char **arg)
     } else if (strcmp(arg[i],"zhi") == 0) {
       addfield("Zhi",&Stats::compute_zhi,FLOAT);
 
-
+    // customized keywords for USP Interpolation
     } else if (strcmp(arg[i], "nInter") == 0) {
         addfield("Ninter", &Stats::compute_interSum, BIGINT);
     } else if (strcmp(arg[i], "surfInter") == 0) {
@@ -597,13 +597,12 @@ void Stats::set_fields(int narg, char **arg)
     } else if (strcmp(arg[i], "outInter") == 0) {
     addfield("outInter", &Stats::compute_interOutfrac, FLOAT);
     } else if (strcmp(arg[i], "warningInter") == 0) {
-    addfield("warningInter", &Stats::compute_interWarningfrac, FLOAT);
-    }  
-    
+    addfield("warningInter", &Stats::compute_interWarningfrac, FLOAT);    
     // surf collide value = s_ID, surf react value = r_ID
     // count trailing [] and store int arguments
     // copy = at most 8 chars of ID to pass to addfield
-    else if ((strncmp(arg[i],"s_",2) == 0) ||
+
+    } else if ((strncmp(arg[i],"s_",2) == 0) ||
 	       (strncmp(arg[i],"r_",2) == 0)) {
 
       int n = strlen(arg[i]);
@@ -962,6 +961,7 @@ int Stats::evaluate_keyword(char *word, double *answer)
   else if (strcmp(word,"zlo") == 0) compute_zlo();
   else if (strcmp(word,"zhi") == 0) compute_zhi();
 
+  // customized keywords for USP Interpolation
   else if (strcmp(word, "zhi") == 0) compute_zhi();
   else if (strcmp(word, "nInter") == 0) {
     compute_interSum();
@@ -1441,6 +1441,7 @@ void Stats::compute_zhi()
   dvalue = domain->boxhi[2];
 }
 
+// customized keywords for USP Interpolation
 void Stats::compute_interSum() {
     bigint m = grid->gridCommMacro->count_sumInter;
     MPI_Allreduce(&m, &bivalue, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);

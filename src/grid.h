@@ -26,6 +26,17 @@ namespace SPARTA_NS {
 struct CommMacro {
     double v[3];
     double Temp;
+    double theta; //theta = RT = mean(C^2)/3
+};
+struct NoCommMacro {
+    double sum_vi[3];
+                       //(0, 1, 2, 3, 4, 5)
+    double sum_vij[6]; //(00,11,22,01,02,12)
+    double sum_C2vi[3];
+    double sigma_ij[6]; // shear stress, time-ave (00,11,22,01,02,12)
+    double qi[3]; // heat flux ,time-ave
+    double Wmax;
+    double coef_A, coef_B, tao;
 };
 
 class Grid : protected Pointers {
@@ -97,8 +108,6 @@ class Grid : protected Pointers {
     int proc;                 // proc that owns this cell
     int ilocal;               // index of this cell on owning proc
                               // must be correct for all ghost cells
-    int macroflag;            // only meaningful for ghost cells,
-                              // 0/1 = no/yes storage T & V from other proc
 
     cellint neigh[6];         // info on 6 neighbor cells that fully overlap faces
                               // order = XLO,XHI,YLO,YHI,ZLO,ZHI
@@ -155,15 +164,7 @@ class Grid : protected Pointers {
                               // entire cell volume for split cell
     double weight;            // fnum weighting for this cell
 
-    double nu;
-    double sigmaave[6];
-    double qave[3];
-    double psai1, psai2;
-    double nrho;
-    double v_mpv;
-    double Wmax;
-    double Wmax0;
-
+    NoCommMacro macro;
   };
 
   // additional info for owned or ghost split cell or sub cell
@@ -210,7 +211,6 @@ class Grid : protected Pointers {
   ParentLevel *plevels;       // list of parent levels, level = root = simulation box
   ParentCell *pcells;         // list of parent cell neighbors
 
-
   // restart buffers, filled by read_restart
 
   int nlocal_restart;
@@ -218,8 +218,6 @@ class Grid : protected Pointers {
   int *level_restart,*nsplit_restart;
 
   class GridCommMacro* gridCommMacro;
-
-
   // methods
 
   Grid(class SPARTA *);

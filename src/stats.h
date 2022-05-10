@@ -156,7 +156,6 @@ class Stats : protected Pointers {
   void compute_zlo();
   void compute_zhi();
 
-
   // customized keywords for USP Interpolation
   void compute_interSum();
   void compute_interSurffrac();
@@ -165,9 +164,6 @@ class Stats : protected Pointers {
   void compute_interBoundfrac();
   void compute_interOutfrac();
   void compute_interWarningfrac();
-
-  
-
 };
 
 }

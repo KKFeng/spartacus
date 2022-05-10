@@ -12,14 +12,6 @@
    See the README file in the top-level SPARTA directory.
 ------------------------------------------------------------------------- */
 
-/*
-    filename:   particle.cpp
-    version :   1.0
-    abstract:   added omega,Tref and muref at line 1134
-    author  :   Peng Tian
-    date    :   20210516
-*/
-
 #include "mpi.h"
 #include "math.h"
 #include "string.h"
@@ -1097,7 +1089,7 @@ void Particle::read_species_file()
   // skip blank lines or comment lines starting with '#'
   // all other lines must have NWORDS
 
-  int NWORDS = 13;
+  int NWORDS = 10;
   char **words = new char*[NWORDS];
   char line[MAXLINE],copy[MAXLINE];
 
@@ -1134,9 +1126,6 @@ void Particle::read_species_file()
     fsp->vibtemp[0] = atof(words[7]);
     fsp->specwt = atof(words[8]);
     fsp->charge = atof(words[9]);
-    fsp->omega = atof(words[10]);
-    fsp->muref = atof(words[11]);
-    fsp->Tref = atof(words[12]);
 
     if (fsp->rotdof > 0 || fsp->vibdof > 0) fsp->internaldof = 1;
     else fsp->internaldof = 0;

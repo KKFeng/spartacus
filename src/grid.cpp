@@ -241,8 +241,6 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
   c->csurfs = NULL;
   c->nsplit = 1;
   c->isplit = -1;
-  //c->macro.Temp = 0.0;
-  //for (int i = 0; i < 3; i++) c->macro.v[i] = 0;
   
   ChildInfo *ci = &cinfo[nlocal];
   ci->count = 0;
@@ -260,19 +258,8 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
     ci->volume = (hi[0]-lo[0]) * (hi[1]-lo[1]);
 
   // increment both since are adding an unsplit cell
-  
 
-  for (int i = 0; i < 6; i++) ci->sigmaave[i] = 0;
-  for (int i = 0; i < 3; i++) ci->qave[i] = 0;
-
-  ci->nu = 0;
-  ci->psai1 = 0;
-  ci->psai2 = 0;
-  ci->nrho = 0;
-  ci->v_mpv = 0.0;
-  ci->Wmax = 1.0;
-  ci->Wmax0 = 1.0;
-
+  ci->macro.Wmax = 1.0;
   nunsplitlocal++;
   nlocal++;
 }

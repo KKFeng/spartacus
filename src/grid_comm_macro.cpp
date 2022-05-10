@@ -35,6 +35,7 @@
 #include "update.h"
 #include "domain.h"
 #include "surf_collide.h"
+#include "random_mars.h"
 
 using namespace SPARTA_NS;
 using namespace MathConst;
@@ -457,10 +458,13 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
     }
     if (cflag) {
         Surf::Line* line = &surf->lines[minsurf];
-        interMacro = surf->sc[line->isc]->returnComm();
-        if (!interMacro) {
+        if (strcmp(surf->sc[line->isc]->style, "diffuse") == 0) {
+            interMacro = surf->sc[line->isc]->returnComm();
+            ++count_surfInter;
+            if (!interMacro) error->all(FLERR, "Interpolation: diffuse return a nullptr");
+        } else {
             interMacro = &icell->macro;
-        } else  ++count_surfInter;
+        } 
         return interMacro;
 
     } else if (intercell != icell && intercell->nsurf > 0) {
@@ -477,11 +481,14 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
         }
         if (cflag) {
             Surf::Line* line = &surf->lines[minsurf];
-            interMacro = surf->sc[line->isc]->returnComm();
-            if (!interMacro) {
-                interMacro = &intercell->macro;
-                ++count_outInter;
-            } else  ++count_surfInter;
+            if (strcmp(surf->sc[line->isc]->style, "diffuse") == 0) {
+                interMacro = surf->sc[line->isc]->returnComm();
+                ++count_surfInter;
+                if (!interMacro) error->all(FLERR, "Interpolation: diffuse return a nullptr");
+            }
+            else {
+                interMacro = &icell->macro;
+            }
             return interMacro;
         }
     }
