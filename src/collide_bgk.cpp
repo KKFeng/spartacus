@@ -607,7 +607,7 @@ void CollideBGKModify::command(int narg, char** arg)
     }
     int iarg = 0;
     while (iarg < narg) {
-        if (strcmp(arg[iarg], "resetWmax") == 0) {
+        if (strcmp(arg[iarg], "reset_wmax") == 0) {
             if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
             double reset = atof(arg[iarg + 1]);
             if (reset <= 0) {
@@ -622,11 +622,18 @@ void CollideBGKModify::command(int narg, char** arg)
             }
             iarg += 2;
         }     
-        else if (strcmp(arg[iarg], "Pr") == 0) {
+        else if (strcmp(arg[iarg], "pr_num") == 0) {
             if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
             collideBGK->Pr = atof(arg[iarg + 1]);
             if (collideBGK->Pr <= 0) 
                 error->all(FLERR, "Illegal collide_bgk_modify Prantl number");
+            iarg += 2;
+        }
+        else if (strcmp(arg[iarg], "time_ave") == 0) {
+            if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
+            collideBGK->time_ave_coef = atof(arg[iarg + 1]);
+            if (collideBGK->time_ave_coef < 0 || collideBGK->time_ave_coef >=1)
+                error->all(FLERR, "Illegal collide_bgk_modify time_ave_coef");
             iarg += 2;
         }
         else error->all(FLERR, "Illegal collide_bgk_modify command");
