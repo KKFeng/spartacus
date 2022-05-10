@@ -48,7 +48,7 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     time_ave_coef = 0.99;
     nparams = particle->nspecies;
     resetWmax = 0.9999;
-
+    Pr = 0.666667;
     if (nparams == 0)
         error->all(FLERR, "Cannot use collide command with no species defined");
 
@@ -73,12 +73,6 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     if (comm->me == 0) read_param_file(arg[3]);
     MPI_Bcast(params, nparams * sizeof(Params), MPI_BYTE, 0, world);
 
-    // allocate per-species prefactor array
-    //memory->create(prefactor, nparams, "collide_bgk:prefactor");
-    //for (int i = 0; i < particle->nspecies; ++i) {
-    //    Particle::Species& species = particle->species[i];
-    //    prefactor[i] = update->boltz * pow(species.Tref, species.omega) / species.muref;
-    //}
 }
 
 /* ---------------------------------------------------------------------- */
@@ -168,7 +162,8 @@ void CollideBGK::collisions()
             else if (bgk_mod == SBGK) perform_sbgk(ipart, icell, interMacro);
             else if (bgk_mod == ESBGK) perform_esbgk(ipart, icell, interMacro);
         }  
-        if (resetWmax > 0.0 && resetWmax_tmpflag) 
+        if (resetWmax > 0.0 && resetWmax_tmpflag && 
+            (bgk_mod == USP|| bgk_mod == SBGK))
             cinfo[icell].macro.Wmax *= resetWmax;
     }
     conservV();
@@ -282,8 +277,8 @@ void CollideBGK::perform_esbgk(Particle::OnePart* ip, int icell, const CommMacro
     for (int i = 0; i < 3; i++)
         vn[i] = random->gaussian() * sqrt(interMacro->theta);
     ip->v[0] = vn[0]*Sij[0] + vn[1]*Sij[3] + vn[2]*Sij[4] +interMacro->v[0];
-    ip->v[1] = vn[0]*Sij[3] + vn[1]*Sij[1] + vn[2]*Sij[5] +interMacro->v[0];
-    ip->v[2] = vn[0]*Sij[4] + vn[1]*Sij[5] + vn[2]*Sij[2] +interMacro->v[0];
+    ip->v[1] = vn[0]*Sij[3] + vn[1]*Sij[1] + vn[2]*Sij[5] +interMacro->v[1];
+    ip->v[2] = vn[0]*Sij[4] + vn[1]*Sij[5] + vn[2]*Sij[2] +interMacro->v[2];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -385,7 +380,7 @@ template < int MOD > void CollideBGK::computeMacro()
             nmacro.sum_vij[i] += vii;
             C2 += vii;
         }
-        if (MOD == USP || MOD == ESBGK) {
+        if (MOD == USP || MOD == ESBGK || MOD == SBGK) {
             nmacro.sum_vij[3] += v[0] * v[1];
             nmacro.sum_vij[4] += v[0] * v[2];
             nmacro.sum_vij[5] += v[1] * v[2];
@@ -442,21 +437,20 @@ template < int MOD > void CollideBGK::computeMacro()
         }
         // NOTE: if MOD == ESBGK, sigma_ij is actually Sij in esbgk mod, no time-ave
         else if (MOD == ESBGK) {
-            double* vij = mean_nmacro.sum_vij;
             double* vi = mean_nmacro.sum_vi;
-            double pf_Pr = (1 - Pr) / (Pr * 2);
-            double pf_T = ((vij[0] + vij[1] + vij[2]) -
-                (vi[0] * vi[0] + vi[1] * vi[1] + vi[2] * vi[2]) / np) / 3;
+            double pf_Pr = (1.0 - Pr) / (Pr * 2.0);
+            double pf_T = ((sum_vij[0] + sum_vij[1] + sum_vij[2]) -
+                (vi[0] * vi[0] + vi[1] * vi[1] + vi[2] * vi[2]) / np) / 3.0;
             for (int i = 0; i < 3; ++i) {
                 mean_nmacro.sigma_ij[i] = 1 + pf_Pr - pf_Pr / pf_T *
-                    (vij[i] - vi[i] * vi[i] / np);
+                    (sum_vij[i] - vi[i] * vi[i] / np);
             }
             mean_nmacro.sigma_ij[3] = - pf_Pr / pf_T *
-                (vij[3] - vi[0] * vi[1] / np);            
+                (sum_vij[3] - vi[0] * vi[1] / np);            
             mean_nmacro.sigma_ij[4] = - pf_Pr / pf_T *
-                (vij[4] - vi[0] * vi[2] / np);            
-            mean_nmacro.sigma_ij[3] = - pf_Pr / pf_T *
-                (vij[5] - vi[1] * vi[2] / np);
+                (sum_vij[4] - vi[0] * vi[2] / np);            
+            mean_nmacro.sigma_ij[5] = - pf_Pr / pf_T *
+                (sum_vij[5] - vi[1] * vi[2] / np);
         }
         if (MOD == USP || MOD == SBGK) {
             qi[0] = factor / 2 * (mean_nmacro.sum_C2vi[0]
@@ -492,7 +486,7 @@ template < int MOD > void CollideBGK::computeMacro()
         if (strcmp(surf->sc[isc]->style, "diffuse") != 0) continue;
         CommMacro* cmacro = surf->sc[isc]->returnComm();
         if (cmacro && cmacro->theta < 0 && cmacro->Temp>0) {
-            cmacro->theta == cmacro->Temp / mass * update->boltz;
+            cmacro->theta = cmacro->Temp / mass * update->boltz;
         }
     }
 
@@ -545,7 +539,7 @@ void CollideBGK::read_param_file(char* fname)
         if (isp < 0) continue;
 
         else {
-            if (nwords < REQWORDS + 1)  // one extra word in cross-species lines
+            if (nwords < REQWORDS) 
                 error->one(FLERR, "Incorrect line format in BGK parameter file");
             params[isp].mu_ref  = atof(words[1]);
             params[isp].omega = atof(words[2]);
