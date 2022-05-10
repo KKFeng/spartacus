@@ -1,0 +1,66 @@
+###########################################################
+# Input script of couette flow example 
+# you can change collision ( or relaxtion ) mode by "collide"
+# command below
+#
+# Feng Kai 
+# kfeng@buaa.edu.cn 
+###########################################################
+seed			12345
+dimension		2
+global			gridcut -1.0 comm/sort yes 
+
+boundary		p s p
+
+create_box		0 1 0 4.9542e-6 -0.5 0.5
+create_grid		1 300 1
+
+balance_grid		rcb part
+
+surf_collide		lo diffuse 273 1 translate 337.18 0 0
+bound_modify		ylo collide lo
+
+surf_collide		hi diffuse 273 1 translate -337.18 0 0
+bound_modify		yhi collide hi
+species			ar.species Ar
+mixture			air Ar vstream 0.0 0.0 0.0 temp 273
+
+global			nrho 2.6895e+25
+global			fnum 2.2208e15
+# chose different command line to use different collision mode 
+## DSMC  
+#collide			vss air ar.vss
+## ES-BGK 
+#collide			bgk air esbgk ar.bgk 
+## Shakhov-BGK  
+#collide			bgk air sbgk ar.bgk 
+## original BGK 
+#collide			bgk air bgk ar.bgk 
+## USP-BGK 
+collide			bgk air usp ar.bgk 
+
+# collide_bgk_modify is a new command to set some parameter in BGK-like 
+# method, can only be used when collide mode is bgk
+#
+# pr_num      global Prandtl Number 
+# time_ave    set time-average coefficient of Calculation of Macro Quantity
+#             e.g. <new> = <old> * time_ave + <current> * (1-time_ave)
+# reset_wmax  whether and how to reduce Wmax in accept-reject method
+#             if no W > Wmax this loop in this cell , Wmax *= reset_wmax 
+#             ( {f_u = W * f_maxwell} in USP algorithm)
+collide_bgk_modify pr_num 0.66667 time_ave 0.99 reset_wmax 0.99 
+
+create_particles	air n 0
+
+stats			1000
+compute			1 grid all air massrho u 
+compute			2 thermal/grid all air temp press
+
+stats_style	    step cpu np 
+
+timestep 		2.9394e-11
+
+fix			1 ave/grid all 1 10000 10000 c_1[*] c_2[*] #ave running
+dump			1 grid all 10000 data/esbgk.*.dat id yc f_1[*]
+
+run 			50000
