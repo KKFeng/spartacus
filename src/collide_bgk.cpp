@@ -406,7 +406,6 @@ template < int MOD > void CollideBGK::computeMacro()
             species = particle->species[particles[cinfo.first].ispecies];
         double mass = particle->species[particles[cinfo.first].ispecies].mass;
         Params& ps = params[particles[cinfo.first].ispecies];
-        double factor = mass * update->fnum * cinfo.weight / cinfo.volume;
         double pij[6]{}, qi[3]{};
         double* sum_vij = mean_nmacro.sum_vij;
         double* v = cmacro.v;
@@ -422,12 +421,14 @@ template < int MOD > void CollideBGK::computeMacro()
             * pow(cmacro.Temp, 1 - ps.omega) * update->dt / ps.mu_ref;
         double p = 0.0;
         if (MOD == USP|| MOD == SBGK) {
+            double factor = mass * update->fnum * cinfo.weight / cinfo.volume;
+            double factor_p = factor / (1 + mean_nmacro.tao / 2);
             for (int i = 0; i < 3; ++i) {
-                pij[i] = factor * (sum_vij[i] - np * v[i] * v[i]);
+                pij[i] = factor_p * (sum_vij[i] - np * v[i] * v[i]);
             }
-            pij[3] = factor * (sum_vij[3] - np * v[0] * v[1]);
-            pij[4] = factor * (sum_vij[4] - np * v[0] * v[2]);
-            pij[5] = factor * (sum_vij[5] - np * v[1] * v[2]);
+            pij[3] = factor_p * (sum_vij[3] - np * v[0] * v[1]);
+            pij[4] = factor_p * (sum_vij[4] - np * v[0] * v[2]);
+            pij[5] = factor_p * (sum_vij[5] - np * v[1] * v[2]);
             // time-average pij
             p = (pij[0] + pij[1] + pij[2]) / 3.0;
             for (int i = 0; i < 3; ++i) {
@@ -438,13 +439,15 @@ template < int MOD > void CollideBGK::computeMacro()
                 mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
                     + pij[i] * (1 - time_ave_coef);
             }
-            qi[0] = factor / 2 * (mean_nmacro.sum_C2vi[0]
+            double factor_q = factor / 
+                (1 + Pr * mean_nmacro.tao / 2);
+            qi[0] = factor_q / 2 * (mean_nmacro.sum_C2vi[0]
                 - v[0] * sum_C2 + 2 * np * V_2 * v[0]
                 - 2 * (v[0] * sum_vij[0] + v[1] * sum_vij[3] + v[2] * sum_vij[4]));
-            qi[1] = factor / 2 * (mean_nmacro.sum_C2vi[1]
+            qi[1] = factor_q / 2 * (mean_nmacro.sum_C2vi[1]
                 - v[1] * sum_C2 + 2 * np * V_2 * v[1]
                 - 2 * (v[0] * sum_vij[3] + v[1] * sum_vij[1] + v[2] * sum_vij[5]));
-            qi[2] = factor / 2 * (mean_nmacro.sum_C2vi[2]
+            qi[2] = factor_q / 2 * (mean_nmacro.sum_C2vi[2]
                 - v[2] * sum_C2 + 2 * np * V_2 * v[2]
                 - 2 * (v[0] * sum_vij[4] + v[1] * sum_vij[5] + v[2] * sum_vij[2]));
 
