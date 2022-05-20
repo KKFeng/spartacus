@@ -127,7 +127,7 @@ void CollideBGK::collisions()
         }
 
         Grid::ChildCell* cells = grid->cells;
-        double bgk_attempt = attempt_collision(icell,0,cinfo[icell].macro.tao);
+        double bgk_attempt = attempt_collision(icell,0,cinfo[icell].macro.tao*2.0);
         int bgk_nattempt = static_cast<int> (bgk_attempt + (random->uniform()));
 
         int n = 0;
@@ -418,29 +418,28 @@ template < int MOD > void CollideBGK::computeMacro()
         cmacro.Temp = mass / update->boltz * cmacro.theta;
         double nrho = cinfo.count * update->fnum * cinfo.weight / cinfo.volume;
         mean_nmacro.tao = nrho * update->boltz * pow(ps.T_ref, ps.omega)
-            * pow(cmacro.Temp, 1 - ps.omega) * update->dt / ps.mu_ref;
+            * pow(cmacro.Temp, 1 - ps.omega) * update->dt / ps.mu_ref / 2.0;
         double p = 0.0;
         if (MOD == USP|| MOD == SBGK) {
             double factor = mass * update->fnum * cinfo.weight / cinfo.volume;
-            double factor_p = factor / (1 + mean_nmacro.tao / 2);
             for (int i = 0; i < 3; ++i) {
-                pij[i] = factor_p * (sum_vij[i] - np * v[i] * v[i]);
+                pij[i] = factor * (sum_vij[i] - np * v[i] * v[i]);
             }
-            pij[3] = factor_p * (sum_vij[3] - np * v[0] * v[1]);
-            pij[4] = factor_p * (sum_vij[4] - np * v[0] * v[2]);
-            pij[5] = factor_p * (sum_vij[5] - np * v[1] * v[2]);
+            pij[3] = factor * (sum_vij[3] - np * v[0] * v[1]);
+            pij[4] = factor * (sum_vij[4] - np * v[0] * v[2]);
+            pij[5] = factor * (sum_vij[5] - np * v[1] * v[2]);
             // time-average pij
             p = (pij[0] + pij[1] + pij[2]) / 3.0;
             for (int i = 0; i < 3; ++i) {
                 mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
-                    + (pij[i] - p) * (1 - time_ave_coef);
+                    + (pij[i] - p) * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
             }            
             for (int i = 3; i < 6; ++i) {
                 mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
-                    + pij[i] * (1 - time_ave_coef);
+                    + pij[i] * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
             }
             double factor_q = factor / 
-                (1 + Pr * mean_nmacro.tao / 2);
+                (1 + Pr * mean_nmacro.tao);
             qi[0] = factor_q / 2 * (mean_nmacro.sum_C2vi[0]
                 - v[0] * sum_C2 + 2 * np * V_2 * v[0]
                 - 2 * (v[0] * sum_vij[0] + v[1] * sum_vij[3] + v[2] * sum_vij[4]));
@@ -459,12 +458,12 @@ template < int MOD > void CollideBGK::computeMacro()
             // prefactor of weight in Acceptance-Rejection Method
             if (MOD == USP) {
                 double p_theta = p * cmacro.theta;
-                double tao_coth = mean_nmacro.tao / 2 * (1 + 2 / (exp(mean_nmacro.tao) - 1));
-                mean_nmacro.coef_A = (1 - tao_coth) / (2 * p_theta);
-                mean_nmacro.coef_B = (1 - Pr * tao_coth) / (5 * p_theta);
+                double tao_coth = mean_nmacro.tao * (1.0 + 2.0 / (exp(mean_nmacro.tao*2.0) - 1.0));
+                mean_nmacro.coef_A = (1.0 - tao_coth) / (2.0 * p_theta);
+                mean_nmacro.coef_B = (1.0 - Pr * tao_coth) / (5.0 * p_theta);
             }
             else if (MOD == SBGK) {
-                mean_nmacro.coef_B = (1 - Pr) / (5 * p * cmacro.theta);
+                mean_nmacro.coef_B = (1.0 - Pr) / (5.0 * p * cmacro.theta);
             }
         }
         // NOTE: if MOD == ESBGK, sigma_ij is actually Sij in esbgk mod, no time-ave
