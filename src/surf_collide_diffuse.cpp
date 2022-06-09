@@ -108,7 +108,6 @@ SurfCollideDiffuse::SurfCollideDiffuse(SPARTA *sparta, int narg, char **arg) :
   macro = new CommMacro();
   macro->Temp = twall;
   macro->v[0] = vx; macro->v[1] = vy; macro->v[2] = vz;
-  macro->theta = -1.0;
 }
 
 /* ---------------------------------------------------------------------- */

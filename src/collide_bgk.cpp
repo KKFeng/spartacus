@@ -196,6 +196,7 @@ void CollideBGK::conservV() {
         }
     }
     for (int icell = 0; icell < nlocal; ++icell) {
+        double theta = grid->cells[icell].macro.Temp / particle->species[0].mass * update->boltz;
         double np = grid->cinfo[icell].count;
         if (np <= 3) continue;
         NoCommMacro& nmacro = grid->cinfo[icell].macro;
@@ -207,7 +208,7 @@ void CollideBGK::conservV() {
         double theta_post = (nmacro.sum_vij[0]
             - (nmacro.sum_vi[0] * nmacro.sum_vi[0] + nmacro.sum_vi[1] * nmacro.sum_vi[1]
                 + nmacro.sum_vi[2] * nmacro.sum_vi[2]) / np) / np / 3;
-        conservMacro[icell].coef = sqrt(grid->cells[icell].macro.theta / theta_post);
+        conservMacro[icell].coef = sqrt(theta / theta_post);
     }
     for (int ipart = 0; ipart < particle->nlocal; ++ipart) {
         Particle::OnePart& part = particle->particles[ipart];
@@ -229,9 +230,10 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
     const double* sigma_ij = cinfo[icell].macro.sigma_ij;
     const double* q = cinfo[icell].macro.qi;
     double vn[3];
+    double theta = interMacro->Temp / particle->species[ip->ispecies].mass * update->boltz;
     while (true)
     {
-        for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(interMacro->theta);
+        for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(theta);
         double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
         double trace = C_2/3;
         double sigmacc = 
@@ -242,7 +244,7 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
             + sigma_ij[4] * vn[0] * vn[2] * 2
             + sigma_ij[5] * vn[1] * vn[2] * 2;
         double qkck = (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) *
-            (C_2 / interMacro->theta - 5);
+            (C_2 / theta - 5);
 
         double W = 1.0 + cinfo[icell].macro.coef_A * sigmacc +
             cinfo[icell].macro.coef_B * qkck;
@@ -262,8 +264,9 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
 
 void CollideBGK::perform_bgkbgk(Particle::OnePart* ip, int , const CommMacro* interMacro)
 {
-    for (int i = 0; i < 3; i++) 
-        ip->v[i] = random->gaussian() * sqrt(interMacro->theta) + interMacro->v[i];
+    double theta = interMacro->Temp / particle->species[ip->ispecies].mass * update->boltz;
+    for (int i = 0; i < 3; i++)
+        ip->v[i] = random->gaussian() * sqrt(theta) + interMacro->v[i];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -275,8 +278,9 @@ void CollideBGK::perform_esbgk(Particle::OnePart* ip, int icell, const CommMacro
     //(00,11,22,01,02,12)
     const double* Sij = cinfo[icell].macro.sigma_ij;
     double vn[3];
+    double theta = interMacro->Temp / particle->species[ip->ispecies].mass * update->boltz;
     for (int i = 0; i < 3; i++)
-        vn[i] = random->gaussian() * sqrt(interMacro->theta);
+        vn[i] = random->gaussian() * sqrt(theta);
     ip->v[0] = vn[0]*Sij[0] + vn[1]*Sij[3] + vn[2]*Sij[4] +interMacro->v[0];
     ip->v[1] = vn[0]*Sij[3] + vn[1]*Sij[1] + vn[2]*Sij[5] +interMacro->v[1];
     ip->v[2] = vn[0]*Sij[4] + vn[1]*Sij[5] + vn[2]*Sij[2] +interMacro->v[2];
@@ -288,13 +292,14 @@ void CollideBGK::perform_sbgk(Particle::OnePart* ip, int icell, const CommMacro*
 {
     Grid::ChildInfo* cinfo = grid->cinfo;
     const double* q = cinfo[icell].macro.qi;
+    double theta = interMacro->Temp / particle->species[ip->ispecies].mass * update->boltz;
     double vn[3];
     while (true)
     {
-        for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(interMacro->theta);
+        for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(theta);
         double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
         double qkck = (vn[0] * q[0] + vn[1] * q[1] + vn[2] * q[2]) *
-            (C_2 / interMacro->theta - 5);
+            (C_2 / theta - 5);
         double W = 1.0 + cinfo[icell].macro.coef_B * qkck;
         if (W > cinfo[icell].macro.Wmax) {
             cinfo[icell].macro.Wmax = W;
@@ -414,8 +419,11 @@ template < int MOD > void CollideBGK::computeMacro()
         }
         double V_2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
         double sum_C2 = sum_vij[0] + sum_vij[1] + sum_vij[2];
-        cmacro.theta = (sum_C2 / np - V_2) / 3;
-        cmacro.Temp = mass / update->boltz * cmacro.theta;
+        cmacro.Temp = mass / update->boltz * (sum_C2 / np - V_2) / 3;
+        if (cmacro.Temp < 0) cmacro.Temp = 0.0; 
+        // if particle is weighted, particles with same velocity maybe exist, thus
+        // Temp < 0 due to truncation error due to floating point numbers
+
         double nrho = cinfo.count * update->fnum * cinfo.weight / cinfo.volume;
         mean_nmacro.tao = nrho * update->boltz * pow(ps.T_ref, ps.omega)
             * pow(cmacro.Temp, 1 - ps.omega) * update->dt / ps.mu_ref / 2.0;
@@ -433,7 +441,7 @@ template < int MOD > void CollideBGK::computeMacro()
             for (int i = 0; i < 3; ++i) {
                 mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
                     + (pij[i] - p) * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
-            }            
+            }
             for (int i = 3; i < 6; ++i) {
                 mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
                     + pij[i] * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
@@ -453,17 +461,17 @@ template < int MOD > void CollideBGK::computeMacro()
             // time-average qi
             for (int i = 0; i < 3; ++i) {
                 mean_nmacro.qi[i] = mean_nmacro.qi[i] * time_ave_coef
-                    + qi[i] * (1.0 - time_ave_coef);
+                + qi[i] * (1.0 - time_ave_coef) / (1 + Pr * mean_nmacro.tao);
             }
             // prefactor of weight in Acceptance-Rejection Method
             if (MOD == USP) {
-                double p_theta = p * cmacro.theta;
-                double tao_coth = mean_nmacro.tao * (1.0 + 2.0 / (exp(mean_nmacro.tao*2.0) - 1.0));
+                double p_theta = p * cmacro.Temp / mass * update->boltz;
+                double tao_coth = mean_nmacro.tao * (1.0 + 2.0 / (exp(mean_nmacro.tao * 2.0) - 1.0));
                 mean_nmacro.coef_A = (1.0 - tao_coth) / (2.0 * p_theta);
                 mean_nmacro.coef_B = (1.0 - Pr * tao_coth) / (5.0 * p_theta);
             }
             else if (MOD == SBGK) {
-                mean_nmacro.coef_B = (1.0 - Pr) / (5.0 * p * cmacro.theta);
+                mean_nmacro.coef_B = (1.0 - Pr) / (5.0 * p * cmacro.Temp / mass * update->boltz);
             }
         }
         // NOTE: if MOD == ESBGK, sigma_ij is actually Sij in esbgk mod, no time-ave
@@ -482,15 +490,6 @@ template < int MOD > void CollideBGK::computeMacro()
                 (sum_vij[4] - vi[0] * vi[2] / np);            
             mean_nmacro.sigma_ij[5] = - pf_Pr / pf_T *
                 (sum_vij[5] - vi[1] * vi[2] / np);
-        }
-    }
-
-    for (int isc = 0; isc < surf->nsc; ++isc) {
-        double mass = particle->species[particle->particles[0].ispecies].mass;
-        if (strcmp(surf->sc[isc]->style, "diffuse") != 0) continue;
-        CommMacro* cmacro = surf->sc[isc]->returnComm();
-        if (cmacro && cmacro->theta < 0 && cmacro->Temp>0) {
-            cmacro->theta = cmacro->Temp / mass * update->boltz;
         }
     }
 

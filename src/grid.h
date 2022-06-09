@@ -26,7 +26,6 @@ namespace SPARTA_NS {
 struct CommMacro {
     double v[3];
     double Temp;
-    double theta; //theta = RT = mean(C^2)/3
 };
 struct NoCommMacro {
     double sum_vi[3];
