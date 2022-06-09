@@ -113,7 +113,7 @@ void CollideBGK::collisions()
     int* next = particle->next;
     for (int icell = 0; icell < nglocal; icell++) {
         int np = cinfo[icell].count;
-        if (np <= 3) continue;
+        if (!grid->cinfo[icell].macro.do_relaxation) continue;
         int ip = cinfo[icell].first;
         double volume = cinfo[icell].volume / cinfo[icell].weight;
         if (volume == 0.0) error->one(FLERR, "Collision cell volume is zero");
@@ -196,6 +196,8 @@ void CollideBGK::conservV() {
         }
     }
     for (int icell = 0; icell < nlocal; ++icell) {
+        conservMacro[icell].done_relaxation = grid->cinfo[icell].macro.do_relaxation;
+        if (!conservMacro[icell].done_relaxation) continue;
         double theta = grid->cells[icell].macro.Temp / particle->species[0].mass * update->boltz;
         double np = grid->cinfo[icell].count;
         if (np <= 3) continue;
@@ -213,6 +215,7 @@ void CollideBGK::conservV() {
     for (int ipart = 0; ipart < particle->nlocal; ++ipart) {
         Particle::OnePart& part = particle->particles[ipart];
         ConservMacro& cm = conservMacro[part.icell];
+        if (!cm.done_relaxation) continue;
         for (int i = 0; i < 3; ++i) {
             part.v[i] = (part.v[i] - cm.v_post[i]) * cm.coef + cm.v_origin[i];
         }
@@ -230,14 +233,23 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
     const double* sigma_ij = cinfo[icell].macro.sigma_ij;
     const double* q = cinfo[icell].macro.qi;
     double vn[3];
+    //int count_loop = 0;
     double theta = interMacro->Temp / particle->species[ip->ispecies].mass * update->boltz;
     while (true)
     {
+        //++count_loop;
+        //if (isnan(interMacro->Temp))error->all(FLERR, "isnan(interMacro->Temp)");
+        //if (interMacro->Temp < 0)error->all(FLERR, "interMacro->Temp < 0");
+        //if (isnan(theta))error->all(FLERR, "isnan(theta)");
+        //if (theta < 0)error->all(FLERR, "theta < 0");
         for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(theta);
+        //if (isnan(vn[0]))error->all(FLERR, "isnan(vn[0])");
+        //if (isnan(vn[1]))error->all(FLERR, "isnan(vn[1])");
+        //if (isnan(vn[2]))error->all(FLERR, "isnan(vn[2])");
         double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
         double trace = C_2/3;
-        double sigmacc = 
-              sigma_ij[0] * (vn[0] * vn[0] - trace)
+        double sigmacc =
+            sigma_ij[0] * (vn[0] * vn[0] - trace)
             + sigma_ij[1] * (vn[1] * vn[1] - trace)
             + sigma_ij[2] * (vn[2] * vn[2] - trace)
             + sigma_ij[3] * vn[0] * vn[1] * 2
@@ -248,14 +260,25 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
 
         double W = 1.0 + cinfo[icell].macro.coef_A * sigmacc +
             cinfo[icell].macro.coef_B * qkck;
-        if (W > cinfo[icell].macro.Wmax) {
+        if (W > cinfo[icell].macro.Wmax && W < 5) {
             cinfo[icell].macro.Wmax = W;
             resetWmax_tmpflag = 0;
             break;
         }
         if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
+        //if (count_loop > 20) {
+        //    std::cout << "count_loop > 20! W=" << W << " Wmax = " << cinfo[icell].macro.Wmax
+        //        << " A: " << cinfo[icell].macro.coef_A << " sigmacc: " << sigmacc
+        //        << " B: " << cinfo[icell].macro.coef_B << " qkck: " << qkck
+        //        << " theta: " << theta << " C_2: " << C_2
+        //        << std::endl;
+        //    break;
+        //}
     }
     for (int i = 0; i < 3; i++) ip->v[i] = vn[i] + interMacro->v[i];
+    //if (isnan(ip->v[0]))error->all(FLERR, "isnan(ip->v[0])");
+    //if (isnan(ip->v[1]))error->all(FLERR, "isnan(ip->v[1])");
+    //if (isnan(ip->v[2]))error->all(FLERR, "isnan(ip->v[2])");
 
     
 }
@@ -380,6 +403,7 @@ template < int MOD > void CollideBGK::computeMacro()
         double* v = part.v;
         double C2 = 0.0;
         for (int i = 0; i < 3; ++i) {
+            //if (isnan(v[i])) error->all(FLERR, "isnan(v[i])");
             nmacro.sum_vi[i] += v[i];
             double vii = v[i] * v[i];
             nmacro.sum_vij[i] += vii;
@@ -405,7 +429,14 @@ template < int MOD > void CollideBGK::computeMacro()
         Grid::ChildInfo& cinfo = grid->cinfo[icell];
         Particle::OnePart* particles = particle->particles;
         int np = cinfo.count;
-        if (np <= 3) continue;
+        if (np <= 3) {
+            mean_nmacro.do_relaxation = 0;
+            continue;
+        }
+        else
+        {
+            mean_nmacro.do_relaxation = 1;
+        }
         // Currently assume all particles have same ispecies
         Particle::Species& 
             species = particle->species[particles[cinfo.first].ispecies];
@@ -420,7 +451,10 @@ template < int MOD > void CollideBGK::computeMacro()
         double V_2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
         double sum_C2 = sum_vij[0] + sum_vij[1] + sum_vij[2];
         cmacro.Temp = mass / update->boltz * (sum_C2 / np - V_2) / 3;
-        if (cmacro.Temp < 0) cmacro.Temp = 0.0; 
+        if (cmacro.Temp <= 0 || abs(1.0 - sum_C2 / np / V_2) < 1e-3) {
+            mean_nmacro.do_relaxation = 0;
+            continue;
+        }
         // if particle is weighted, particles with same velocity maybe exist, thus
         // Temp < 0 due to truncation error due to floating point numbers
 

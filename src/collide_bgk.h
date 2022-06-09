@@ -60,6 +60,7 @@ class CollideBGK : public Collide {
   };
   struct ConservMacro
   {
+      int done_relaxation;
       double coef;
       double v_origin[3], v_post[3];
   };
