@@ -233,11 +233,11 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
     const double* sigma_ij = cinfo[icell].macro.sigma_ij;
     const double* q = cinfo[icell].macro.qi;
     double vn[3];
-    //int count_loop = 0;
+    int count_loop = 0;
     double theta = interMacro->Temp / particle->species[ip->ispecies].mass * update->boltz;
     while (true)
     {
-        //++count_loop;
+        ++count_loop;
         //if (isnan(interMacro->Temp))error->all(FLERR, "isnan(interMacro->Temp)");
         //if (interMacro->Temp < 0)error->all(FLERR, "interMacro->Temp < 0");
         //if (isnan(theta))error->all(FLERR, "isnan(theta)");
@@ -266,14 +266,13 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
             break;
         }
         if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
-        //if (count_loop > 20) {
-        //    std::cout << "count_loop > 20! W=" << W << " Wmax = " << cinfo[icell].macro.Wmax
-        //        << " A: " << cinfo[icell].macro.coef_A << " sigmacc: " << sigmacc
-        //        << " B: " << cinfo[icell].macro.coef_B << " qkck: " << qkck
-        //        << " theta: " << theta << " C_2: " << C_2
-        //        << std::endl;
-        //    break;
-        //}
+
+        if (count_loop > 20) {
+            char str[128];
+            sprintf(str, "try loop is greater than 20, return without do relaxation !");
+            error->warning(FLERR, str);
+            return;
+        }
     }
     for (int i = 0; i < 3; i++) ip->v[i] = vn[i] + interMacro->v[i];
     //if (isnan(ip->v[0]))error->all(FLERR, "isnan(ip->v[0])");
@@ -451,7 +450,14 @@ template < int MOD > void CollideBGK::computeMacro()
         double V_2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
         double sum_C2 = sum_vij[0] + sum_vij[1] + sum_vij[2];
         cmacro.Temp = mass / update->boltz * (sum_C2 / np - V_2) / 3;
-        if (cmacro.Temp <= 0 || abs(1.0 - sum_C2 / np / V_2) < 1e-3) {
+        if (cmacro.Temp <= 0) {
+            mean_nmacro.do_relaxation = 0;
+            continue;
+        }
+        else if (!(cmacro.Temp > ps.T_ref * 0.1)) {
+            char str[128];
+            sprintf(str, "Temperature in cell %d is %f, not greater than 0.1 * Tref",icell, cmacro.Temp);
+            error->warning(FLERR, str);
             mean_nmacro.do_relaxation = 0;
             continue;
         }
