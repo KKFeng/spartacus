@@ -78,6 +78,8 @@ GridCommMacro::GridCommMacro(SPARTA* sparta) : Pointers(sparta) {
     rbuf = NULL;
     sbuf = NULL;
     irregular = new Irregular(sparta);
+    count_sumInter = count_surfInter = count_originInter = count_neighInter =
+        count_boundInter = count_outInter = count_warningInter = 0;
 }
 
 /* ---------------------------------------------------------------------- */
