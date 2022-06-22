@@ -27,6 +27,7 @@
 #include "collide_bgk.h"
 #include "grid_comm_macro.h"
 #include "surf_collide.h"
+#include "output.h"
 
 using namespace SPARTA_NS;
 using namespace MathConst;
@@ -73,7 +74,11 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     if (comm->me == 0) read_param_file(arg[3]);
     MPI_Bcast(params, nparams * sizeof(Params), MPI_BYTE, 0, world);
 
+    count_try_relaxation = count_done_relaxation = count_fail_relaxation = 0;
+    count_do_childcell = count_ignore_childcell = count_warning_ignore_childcell = 0;
+
 }
+
 
 /* ---------------------------------------------------------------------- */
 
@@ -83,6 +88,12 @@ CollideBGK::~CollideBGK()
 
     memory->destroy(params);
     //memory->destroy(prefactor);
+}
+
+/* ---------------------------------------------------------------------- */
+void CollideBGK::reset_count() {
+    count_try_relaxation = count_done_relaxation = count_fail_relaxation = 0;
+    count_do_childcell = count_ignore_childcell = count_warning_ignore_childcell = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -167,6 +178,7 @@ void CollideBGK::collisions()
             cinfo[icell].macro.Wmax *= resetWmax;
     }
     conservV();
+    print_warning();
 }
 
 /* ----------------------------------------------------------------------
@@ -237,6 +249,7 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
     double theta = interMacro->Temp / particle->species[ip->ispecies].mass * update->boltz;
     while (true)
     {
+        ++count_try_relaxation;
         ++count_loop;
         //if (isnan(interMacro->Temp))error->all(FLERR, "isnan(interMacro->Temp)");
         //if (interMacro->Temp < 0)error->all(FLERR, "interMacro->Temp < 0");
@@ -268,13 +281,15 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
         if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
 
         if (count_loop > 20) {
-            char str[128];
-            sprintf(str, "try loop is greater than 20, return without do relaxation !");
-            error->warning(FLERR, str);
+            //char str[128];
+            //sprintf(str, "try loop is greater than 20, return without do relaxation !");
+            //error->warning(FLERR, str);
+            ++count_fail_relaxation;
             return;
         }
     }
     for (int i = 0; i < 3; i++) ip->v[i] = vn[i] + interMacro->v[i];
+    ++count_done_relaxation;
     //if (isnan(ip->v[0]))error->all(FLERR, "isnan(ip->v[0])");
     //if (isnan(ip->v[1]))error->all(FLERR, "isnan(ip->v[1])");
     //if (isnan(ip->v[2]))error->all(FLERR, "isnan(ip->v[2])");
@@ -430,10 +445,12 @@ template < int MOD > void CollideBGK::computeMacro()
         int np = cinfo.count;
         if (np <= 3) {
             mean_nmacro.do_relaxation = 0;
+            ++count_ignore_childcell;
             continue;
         }
         else
         {
+            ++count_do_childcell;
             mean_nmacro.do_relaxation = 1;
         }
         // Currently assume all particles have same ispecies
@@ -455,9 +472,10 @@ template < int MOD > void CollideBGK::computeMacro()
             continue;
         }
         else if (!(cmacro.Temp > ps.T_ref * 0.1)) {
-            char str[128];
-            sprintf(str, "Temperature in cell %d is %f, not greater than 0.1 * Tref",icell, cmacro.Temp);
-            error->warning(FLERR, str);
+            //char str[128];
+            //sprintf(str, "Temperature in cell %d is %f, not greater than 0.1 * Tref",icell, cmacro.Temp);
+            //error->warning(FLERR, str);
+            ++count_warning_ignore_childcell;
             mean_nmacro.do_relaxation = 0;
             continue;
         }
@@ -623,6 +641,25 @@ int CollideBGK::wordparse(int maxwords, char* line, char** words)
     return nwords;
 }
 
+/* ---------------------------------------------------------------------- */
+void CollideBGK::print_warning() {
+    if (output->next_stats != update->ntimestep)return;
+    if (count_fail_relaxation) {
+        char str[128];
+        sprintf(str, "%d relaxation failed in total %d relaxation: %.2e",
+            count_fail_relaxation, count_done_relaxation + count_fail_relaxation,
+            (double)count_fail_relaxation / (count_done_relaxation + count_fail_relaxation));
+        error->warning(FLERR, str);
+    }
+    else if (count_warning_ignore_childcell) {
+        char str[128];
+        sprintf(str, "%d cells ignored abnormally in total %d child cells: %.2e",
+            count_warning_ignore_childcell, count_warning_ignore_childcell + count_do_childcell,
+            (double)count_warning_ignore_childcell / (count_warning_ignore_childcell + count_do_childcell));
+        error->warning(FLERR, str);
+    }
+    reset_count();
+}
 /* ---------------------------------------------------------------------- */
 
 CollideBGKModify::CollideBGKModify(SPARTA* sparta) : Pointers(sparta){}

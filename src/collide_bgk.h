@@ -65,6 +65,10 @@ class CollideBGK : public Collide {
       double v_origin[3], v_post[3];
   };
 
+  // status
+  bigint count_try_relaxation, count_done_relaxation, count_fail_relaxation;
+  bigint count_do_childcell, count_ignore_childcell, count_warning_ignore_childcell;
+
  protected:
   int nmaxconserv;
   ConservMacro* conservMacro;
@@ -80,6 +84,8 @@ class CollideBGK : public Collide {
   template < int > void computeMacro();
   void read_param_file(char*);
   int wordparse(int, char*, char**);
+  void reset_count();
+  void print_warning();
 
 };
 
