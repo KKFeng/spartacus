@@ -28,6 +28,7 @@
 #include "grid_comm_macro.h"
 #include "surf_collide.h"
 #include "output.h"
+#include "mpi.h"
 
 using namespace SPARTA_NS;
 using namespace MathConst;
@@ -280,12 +281,12 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
         }
         if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
 
-        if (count_loop > 20) {
+        if (count_loop > 100) {
             //char str[128];
             //sprintf(str, "try loop is greater than 20, return without do relaxation !");
             //error->warning(FLERR, str);
             ++count_fail_relaxation;
-            return;
+            break;
         }
     }
     for (int i = 0; i < 3; i++) ip->v[i] = vn[i] + interMacro->v[i];
@@ -644,19 +645,25 @@ int CollideBGK::wordparse(int maxwords, char* line, char** words)
 /* ---------------------------------------------------------------------- */
 void CollideBGK::print_warning() {
     if (output->next_stats != update->ntimestep)return;
-    if (count_fail_relaxation) {
-        char str[128];
-        sprintf(str, "%d relaxation failed in total %d relaxation: %.2e",
-            count_fail_relaxation, count_done_relaxation + count_fail_relaxation,
-            (double)count_fail_relaxation / (count_done_relaxation + count_fail_relaxation));
-        error->warning(FLERR, str);
-    }
-    else if (count_warning_ignore_childcell) {
-        char str[128];
-        sprintf(str, "%d cells ignored abnormally in total %d child cells: %.2e",
-            count_warning_ignore_childcell, count_warning_ignore_childcell + count_do_childcell,
-            (double)count_warning_ignore_childcell / (count_warning_ignore_childcell + count_do_childcell));
-        error->warning(FLERR, str);
+    double sum1, sum2, sum3, sum4;
+    sum1 = sum2 = sum3 = sum4 = 0;
+    MPI_Allreduce(&count_fail_relaxation, &sum1, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    MPI_Allreduce(&count_done_relaxation, &sum2, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    MPI_Allreduce(&count_warning_ignore_childcell, &sum3, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    MPI_Allreduce(&count_do_childcell, &sum4, 1, MPI_SPARTA_BIGINT, MPI_SUM, world);
+    if (update->me == 0) {
+        if (sum1) {
+            char str[128];
+            sprintf(str, "%d relaxation failed in total %d relaxation, percentage = %.4f",
+                sum1, sum2, 100.0 * sum1 / sum2);
+            error->warning(FLERR, str);
+        }
+        else if (sum3) {
+            char str[128];
+            sprintf(str, "%d cells ignored abnormally in total %d child cells, percentage = %.4f",
+                sum3, sum3 + sum4, 100.0 * sum3 / (sum3 + sum4));
+            error->warning(FLERR, str);
+        }
     }
     reset_count();
 }
