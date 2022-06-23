@@ -468,20 +468,13 @@ template < int MOD > void CollideBGK::computeMacro()
         double V_2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
         double sum_C2 = sum_vij[0] + sum_vij[1] + sum_vij[2];
         cmacro.Temp = mass / update->boltz * (sum_C2 / np - V_2) / 3;
-        if (cmacro.Temp <= 0) {
-            mean_nmacro.do_relaxation = 0;
-            continue;
-        }
-        else if (!(cmacro.Temp > ps.T_ref * 0.1)) {
-            //char str[128];
-            //sprintf(str, "Temperature in cell %d is %f, not greater than 0.1 * Tref",icell, cmacro.Temp);
-            //error->warning(FLERR, str);
+        if (!(cmacro.Temp > ps.T_ref * 0.01)) {
+            // if particle is weighted, particles with same velocity maybe exist, thus
+            // Temp ¡Ö 0 due to truncation error of floating point numbers
             ++count_warning_ignore_childcell;
             mean_nmacro.do_relaxation = 0;
             continue;
         }
-        // if particle is weighted, particles with same velocity maybe exist, thus
-        // Temp < 0 due to truncation error due to floating point numbers
 
         double nrho = cinfo.count * update->fnum * cinfo.weight / cinfo.volume;
         mean_nmacro.tao = nrho * update->boltz * pow(ps.T_ref, ps.omega)
