@@ -495,7 +495,13 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
         }
     }
     if (intercell == icell) ++count_originInter;
-    else ++count_neighInter;
+    else if (!grid->cinfo[ipart->icell].macro.do_relaxation) {
+        ++count_warningInter;
+        intercell = icell;
+    }
+    else {
+        ++count_neighInter;        
+    }
     interMacro = &intercell->macro;
     return interMacro;
 }
