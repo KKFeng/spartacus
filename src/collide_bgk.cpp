@@ -252,14 +252,7 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
     {
         ++count_try_relaxation;
         ++count_loop;
-        //if (isnan(interMacro->Temp))error->all(FLERR, "isnan(interMacro->Temp)");
-        //if (interMacro->Temp < 0)error->all(FLERR, "interMacro->Temp < 0");
-        //if (isnan(theta))error->all(FLERR, "isnan(theta)");
-        //if (theta < 0)error->all(FLERR, "theta < 0");
         for (int i = 0; i < 3; i++) vn[i] = random->gaussian() * sqrt(theta);
-        //if (isnan(vn[0]))error->all(FLERR, "isnan(vn[0])");
-        //if (isnan(vn[1]))error->all(FLERR, "isnan(vn[1])");
-        //if (isnan(vn[2]))error->all(FLERR, "isnan(vn[2])");
         double C_2 = vn[0] * vn[0] + vn[1] * vn[1] + vn[2] * vn[2];
         double trace = C_2/3;
         double sigmacc =
@@ -282,20 +275,12 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
         if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
 
         if (count_loop > 100) {
-            //char str[128];
-            //sprintf(str, "try loop is greater than 20, return without do relaxation !");
-            //error->warning(FLERR, str);
             ++count_fail_relaxation;
             break;
         }
     }
     for (int i = 0; i < 3; i++) ip->v[i] = vn[i] + interMacro->v[i];
-    ++count_done_relaxation;
-    //if (isnan(ip->v[0]))error->all(FLERR, "isnan(ip->v[0])");
-    //if (isnan(ip->v[1]))error->all(FLERR, "isnan(ip->v[1])");
-    //if (isnan(ip->v[2]))error->all(FLERR, "isnan(ip->v[2])");
-
-    
+    ++count_done_relaxation;    
 }
 
 /* ---------------------------------------------------------------------- */
@@ -418,7 +403,6 @@ template < int MOD > void CollideBGK::computeMacro()
         double* v = part.v;
         double C2 = 0.0;
         for (int i = 0; i < 3; ++i) {
-            //if (isnan(v[i])) error->all(FLERR, "isnan(v[i])");
             nmacro.sum_vi[i] += v[i];
             double vii = v[i] * v[i];
             nmacro.sum_vij[i] += vii;
