@@ -1,9 +1,16 @@
-This is a USP-BGK solver based on SPARTA.
+SPARTACUS is a Unified Stochastic Particle (USP) solver based on SPARTA.
+SPARTACUS stands for SPARTA Combined USp.
+The USP method is proposed by Fei et al. to simulate multi-scale gas flows.
+/examples_USP contains Several benchmark cases and tutorial examples.
+/doc_USP      contains essential documentation about this solver.
+Downloading, installing and using SPARTACUS is exactly the same as SPARTA
+(https://sparta.github.io/doc/Manual.html), unless specified in the above folders.
+
+
 
 SPARTA on GitHub: https://github.com/sparta/sparta 
-or my clone repository on Gitee: https://gitee.com/kaikfeng/sparta
-
-## Original SPARTA README:
+##################################################################
+Original SPARTA README:
 
 This is the SPARTA software package.
 
