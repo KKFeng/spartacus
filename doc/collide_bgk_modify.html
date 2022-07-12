@@ -1,0 +1,78 @@
+<HTML>
+<CENTER><A HREF = "https://github.com/KKFeng/spartacus">SPARTACUS GitHub repo</A> - <A HREF = "Manual.html">SPARTA Documentation</A> - <A HREF = "Section_commands.html#comm">SPARTA Commands</A> 
+</CENTER>
+<HR>
+
+<H3>collide_bgk_modify command 
+</H3>
+<P><B>Syntax:</B>
+</P>
+<PRE>collide_bgk_modify keyword values ...  
+</PRE>
+<UL><LI>one or more keyword/value pairs may be listed 
+
+<LI>keywords = <I>reset_wmax</I> or <I>pr_num</I> or <I>time_ave</I>
+
+<PRE>  <I>reset_wmax</I> value = reset_coef
+    reset_coef = whether and how to reduce Wmax in accept-reject method
+  <I>pr_num</I> value = Pr
+    Pr = global Prandtl number
+  <I>time_ave</I> value = time_aveCoef
+    time_aveCoef = time-average coefficient of calculation of macroscopic variable in USP-BGK or S-BGK relaxation
+</PRE>
+
+</UL>
+<P><B>Examples:</B>
+</P>
+<PRE>collide_bgk_modify pr_num 1 
+collide_bgk_modify pr_num 0.66667 time_ave 0.99 reset_wmax 0.9999
+</PRE>
+<P><B>Description:</B>
+</P>
+<P>Set parameters that affect how BGK-based relaxation are performed
+</P>
+<P>The <I>reset_wmax</I> keyword affects whether and how to reduce Wmax in accept-reject method, i.e., [<I>Wmax</I> =  <I>Wmax</I> * time_ave] if no W reach oldWmax in this timestep. 
+If Wmax = 1, which means no reduce will be done during the whole simulation, and Wmax may only be 
+larger and larger in each timestep, thus the simulation is less efficient.    
+</P>
+<P>The <I>pr_num</I> keyword defines the global reference Prandtl number. 
+</P>
+
+<P>The <I>time_ave</I> keyword defines time-average coefficient of calculation of macroscopic variable in USP-BGK or S-BGK relaxation.
+The specific formula is [ <I>newMacro</I> =  <I>OldMacro</I> * time_ave + <I>currentMacro</I> * (1 - time_ave) ].
+</P>
+
+<HR>
+
+<P><B>Restrictions:</B> only if <A HREF = "collide.html">collide</A> command is specified as "collide bgk ..."
+</P>
+<P><B>Related commands:</B>
+</P>
+<P><A HREF = "collide.html">collide</A>
+</P>
+<P><B>Default:</B>
+</P>
+<P>The option defaults are reset_coef = 0.9999, time_aveCoef = 0.99 and Pr = 0.66667
+</P>
+<HR>
+
+<A NAME = "Fei2020"></A>
+
+<P><B>(Fei2020)</B> F. Fei, J. Zhang, J. Li, and Z. Liu, “A unified stochastic particle Bhatnagar-Gross-Krook method for multiscale gas flows,” Journal of Computational Physics, vol. 400, p. 108972, Jan. 2020, doi: 10.1016/j.jcp.2019.108972.
+</P>
+
+<A NAME = "FeiJenny2021"></A>
+
+<P><B>(FeiJenny2021)</B> F. Fei and P. Jenny, “A hybrid particle approach based on the unified stochastic particle Bhatnagar-Gross-Krook and DSMC methods,” Journal of Computational Physics, vol. 424, p. 109858, Jan. 2021, doi: 10.1016/j.jcp.2020.109858.
+</P>
+
+<A NAME = "FeiMa2021"></A>
+
+<P><B>(FeiMa2021)</B> F. Fei, Y. Ma, J. Wu, and J. Zhang, “An efficient algorithm of the unified stochastic particle Bhatnagar-Gross-Krook method for the simulation of multi-scale gas flows,” Adv. Aerodyn., vol. 3, no. 1, p. 18, Dec. 2021, doi: 10.1186/s42774-021-00069-8.
+</P> 
+
+<A NAME = "Zhang2019"></A>
+
+<P><B>(Zhang2019)</B> J. Zhang, B. John, M. Pfeiffer, F. Fei, and D. Wen, “Particle-based hybrid and multiscale methods for nonequilibrium gas flows,” Adv. Aerodyn., vol. 1, no. 1, p. 12, Dec. 2019, doi: 10.1186/s42774-019-0014-7.
+</P> 
+</HTML>

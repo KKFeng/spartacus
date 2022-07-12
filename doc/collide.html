@@ -26,6 +26,10 @@
   <I>vss/kk</I> args = mix-ID file
     mix-ID = ID of mixture to use for group definitions
     file = filename that lists species with their VSS model parameters 
+  <I>bgk</I> args = mix-ID bgk_mod file
+    mix-ID = ID of mixture to use for group definitions
+    bgk_mod = <I>bgk</I>, <I>esbgk</I>, <I>sbgk</I> or <I>usp</I>
+    file = filename that lists species with their BGK model parameters 
 </PRE>
 <LI>zero or more keyword/value pairs may be appended 
 
@@ -40,6 +44,11 @@
 <PRE>collide none
 collide vss all ../data/air.vss
 collide vss species all.vss relax variable 
+collide bgk air esbgk ar.bgk   
+collide bgk air sbgk ar.bgk   
+collide bgk air bgk ar.bgk   
+collide bgk air usp ar.bgk 
+
 </PRE>
 <P><B>Description:</B>
 </P>
@@ -98,6 +107,11 @@ the ambipolar electron species must be in a group by itself.
 performed, i.e. the simulation models free-molecular flow.
 </P>
 <HR>
+
+<P>The <I>bgk</I> style implements the BGK-based model for
+relaxation. different BGK-based can be specified by bgk_mod, like original BGK model, 
+ES-BGK model, shokhov-BGK model or USP model.
+</P>
 
 <P>The <I>vss</I> style implements the Variable Soft Sphere (VSS) model for
 collisions.  As discussed below, with appropriate parameter choices,
@@ -230,7 +244,7 @@ effectively.
 </P>
 <P><B>Related commands:</B>
 </P>
-<P><A HREF = "collide_modify.html">collide_modify</A>, <A HREF = "mixture.html">mixture</A>,
+<P><A HREF = "collide_bgk_modify.html">collide_bgk_modify</A>,<A HREF = "collide_modify.html">collide_modify</A>, <A HREF = "mixture.html">mixture</A>,
 <A HREF = "react.html">react</A>
 </P>
 <P><B>Default:</B>
@@ -257,4 +271,24 @@ Simulation of Gas Flows, Clarendon Press, Oxford (1994).
 departures therefrom in nonequilibrium gases," Phys Rev E, 69, 042201
 (2004).
 </P>
+
+<A NAME = "Fei2020"></A>
+
+<P><B>(Fei2020)</B> F. Fei, J. Zhang, J. Li, and Z. Liu, “A unified stochastic particle Bhatnagar-Gross-Krook method for multiscale gas flows,” Journal of Computational Physics, vol. 400, p. 108972, Jan. 2020, doi: 10.1016/j.jcp.2019.108972.
+</P>
+
+<A NAME = "FeiJenny2021"></A>
+
+<P><B>(FeiJenny2021)</B> F. Fei and P. Jenny, “A hybrid particle approach based on the unified stochastic particle Bhatnagar-Gross-Krook and DSMC methods,” Journal of Computational Physics, vol. 424, p. 109858, Jan. 2021, doi: 10.1016/j.jcp.2020.109858.
+</P>
+
+<A NAME = "FeiMa2021"></A>
+
+<P><B>(FeiMa2021)</B> F. Fei, Y. Ma, J. Wu, and J. Zhang, “An efficient algorithm of the unified stochastic particle Bhatnagar-Gross-Krook method for the simulation of multi-scale gas flows,” Adv. Aerodyn., vol. 3, no. 1, p. 18, Dec. 2021, doi: 10.1186/s42774-021-00069-8.
+</P> 
+
+<A NAME = "Zhang2019"></A>
+
+<P><B>(Zhang2019)</B> J. Zhang, B. John, M. Pfeiffer, F. Fei, and D. Wen, “Particle-based hybrid and multiscale methods for nonequilibrium gas flows,” Adv. Aerodyn., vol. 1, no. 1, p. 12, Dec. 2019, doi: 10.1186/s42774-019-0014-7.
+</P> 
 </HTML>
