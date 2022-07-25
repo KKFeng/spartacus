@@ -6,7 +6,8 @@
 # Feng Kai 
 # kfeng@buaa.edu.cn 
 ###########################################################
-seed			12345
+seed			    12345
+shell			mkdir data
 dimension		2
 global			gridcut -1.0 comm/sort yes 
 

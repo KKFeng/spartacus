@@ -1,0 +1,86 @@
+###########################################################
+# Input script of 3d supersonic flow around a scaled model
+# of Mars Pathfinder. 
+# Kn = 0.01, Ma = 2 
+#
+# Feng Kai 
+# kfeng@buaa.edu.cn 
+###########################################################
+variable this_filename string pathfinder.input
+variable collision_style index usp dsmc 
+variable dtm index 6e-6
+
+clear
+shell			mkdir data
+seed	    		12345
+dimension		3
+global			gridcut -1.0 comm/sort yes
+
+boundary	    	o ro ro
+create_box  	    -0.15 0.27 0 0.27  0 0.27 
+create_grid 	    140 90 90
+balance_grid     rcb cell		    
+
+global		    nrho 4.247e20 fnum 1.15e11
+
+read_surf        pathfinder_half.3d.geom  clip
+write_surf       data/geom.surf
+surf_collide	    1 diffuse 200.0 1.0
+surf_modify      all collide 1 
+
+#####
+species			ar.species Ar
+mixture			air Ar vstream 526.77 0.0 0.0 temp 200
+create_particles	air n 0
+
+if "${collision_style}== dsmc" then &
+  "collide			vss air ar.vss" &
+else &
+  "collide			bgk air ${collision_style} ar.bgk" &
+  "collide_bgk_modify pr_num 0.66667 time_ave 0.999 reset_wmax 0.9999 "
+
+fix		    	in emit/face air xlo yhi zhi 
+fix			    bal1 balance 100 1.2 rcb time 
+fix			    bal2 balance 1000 1.02 rcb time 
+
+timestep 		${dtm}
+adapt_grid	    all refine surf all 1e-6 iterate 3 maxlevel 2 dir 1 0 0 
+
+stats			10
+stats_style		step cpu np  nInter originInter neighInter warningInter
+				
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+
+run             8000
+
+write_grid	    data/finalgrid.${collision_style}.dtm${dtm}.dat
+
+stats			100
+
+compute			1 grid all air n nrho massrho u v w 
+compute			2 thermal/grid all air temp press
+fix				1 ave/grid all 1 1000 1000 c_1[*] c_2[*]  ave running
+dump				1 grid all 1000 data/grid.${collision_style}.dtm${dtm}.*.dat xc yc zc id f_1[*]
+dump_modify		1 format float %12.5g
+
+compute		    3 surf all all n nwt press ke fx fy fz px py pz shx shy shz
+fix 		    	2 ave/surf all 1 1000 1000 c_3[*] ave running
+dump		    	2 surf all 1000 data/surf.${collision_style}.dtm${dtm}.*.dat id v1x v1y v1z v2x v2y v2z v3x v3y v3z f_2[*]
+dump_modify		2 format float %12.5g
+
+run 				20000
+
+
+
+next collision_style
+jump ${this_filename}
+
+next dtm
+jump ${this_filename}

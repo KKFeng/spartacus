@@ -1,0 +1,85 @@
+###########################################################
+# Input script of 2d hypersonic flow around a circle 
+# Kn = 0.01, Ma = 10 
+#
+# Feng Kai 
+# kfeng@buaa.edu.cn 
+###########################################################
+variable collision_style index dsmc 
+
+clear
+shell			mkdir data
+seed				12345
+dimension		2
+global			gridcut -1.0 comm/sort yes
+
+boundary			o ro p
+create_box		-0.5 0.5 0 0.4 -0.5 0.5
+create_grid		320 130 1  ##
+balance_grid		rcb cell
+
+global			nrho 4.247e20 fnum 4.08e13 ##
+
+read_surf		circle.2d.geom scale 0.1524 0.1524 1 clip
+write_surf       data/geom.surf
+surf_collide		1 diffuse 500 1
+surf_modify		all collide 1
+
+species			ar.species Ar
+mixture			air Ar vstream 2633.9 0.0 0.0 temp 200
+create_particles	air n 0
+
+if "${collision_style}== dsmc" then &
+  "collide			vss air ar.vss" &
+else &
+  "collide			bgk air ${collision_style} ar.bgk" &
+  "collide_bgk_modify pr_num 0.66667 time_ave 0.999 reset_wmax 0.9999 "
+
+
+fix				in emit/face air xlo yhi 
+fix			    bal1 balance 100 1.2 rcb time 
+fix			    bal2 balance 1000 1.02 rcb time 
+
+
+adapt_grid	    all refine surf all 1e-3 iterate 3 maxlevel 2 dir 1 0 0 
+
+stats			50
+stats_style		step cpu np  nInter originInter neighInter surfInter &
+				boundInter outInter warningInter
+				
+timestep			1.2e-6 ##			
+run				2000
+
+adapt_grid		all refine particle 200 200 cells  2 1 1 
+adapt_grid		all refine particle 200 200 cells  1 2 1
+adapt_grid		all refine particle 200 200 iterate 5
+
+run				1000
+adapt_grid		all refine particle 200 200 cells  2 1 1 
+adapt_grid		all refine particle 200 200 cells  1 2 1
+adapt_grid		all refine particle 200 200 iterate 5
+
+run				8000
+
+write_grid	    data/finalgrid.dat
+
+
+compute			1 grid all all n nrho massrho u v w
+compute			2 thermal/grid all all temp press
+
+fix				1 ave/grid all 1 1000 1000 c_1[*] c_2[*]  ave running
+dump				1 grid all 1000 data/grid.${collision_style}.*.dat xc yc id f_1[*]
+
+dump_modify		1 format float %12.5g
+
+compute 			3 surf all all etot press shx shy nwt
+fix				2 ave/surf all 1 1000 1000 c_3[*] ave running
+dump 			2 surf all 1000 data/urf.${collision_style}.*.dat id v1x v1y v2x v2y f_2[*]
+dump_modify		2 format float %12.5g
+
+run				20000
+
+next collision_style
+
+jump circle.input
+

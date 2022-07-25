@@ -1,0 +1,59 @@
+###########################################################
+# Input script of lid-driven cavity flow Kn = 0.0014 Re=100
+#
+# Feng Kai 
+# kfeng@buaa.edu.cn 
+###########################################################
+
+variable collision_style index usp 
+shell			mkdir data
+seed			    1234
+dimension		2
+global			gridcut -1 comm/sort yes 
+
+boundary		s s p
+
+create_box		-1.7202e-5 1.7202e-5 -1.7202e-5 1.7202e-5 -0.5 0.5
+create_grid		72 72 1
+
+balance_grid		rcb cell
+
+surf_collide   1 diffuse   273 1 translate 0 0 0
+surf_collide   2 diffuse   273 1 translate 34.50 0 0
+
+bound_modify yhi collide 2
+bound_modify xlo xhi ylo collide 1
+
+
+
+species			ar.species Ar
+mixture			air Ar vstream 0.0 0.0 0.0 temp 273
+
+global			nrho 2.6895e25
+global			fnum 3.0705e10
+
+if "${collision_style}== dsmc" then &
+  "collide			vss air ar.vss" &
+else &
+  "collide			bgk air ${collision_style} ar.bgk" &
+  "collide_bgk_modify pr_num 0.66667 time_ave 0.999 reset_wmax 0.9999 "
+
+create_particles	air n 0
+
+stats			100
+compute			1 grid all air nrho u v
+compute			2 thermal/grid all air temp
+stats_style		step cpu np
+
+
+timestep 		4.2525e-10
+run 			10000
+
+fix			1 ave/grid all 1 10000 10000 c_1[*] c_2[*] ave running
+dump			1 grid all 10000 data/cavity.${collision_style}.*.dat xc yc f_1[*]
+
+run 			1000000
+
+next collision_style
+
+jump in.square

@@ -1,0 +1,83 @@
+# 3d flow around Mars Pathfinder
+variable this_filename string pathfinder.input
+variable collision_style index dsmc 
+variable dtm index 1.2e-7
+
+clear
+shell			mkdir data
+seed	    		12345
+dimension		2
+global			gridcut -1.0 comm/sort yes
+
+boundary	    	o ao p
+create_box  	    -0.15 0.27 0 0.27 -0.5 0.5
+create_grid 	    420 270 1
+balance_grid     rcb cell		    
+
+global		    nrho 4.247e20 fnum 2e16 weight cell radius
+
+read_surf        data.Mars scale 0.115 0.115 1
+write_surf       data/geom.surf
+surf_collide	    1 diffuse 200.0 1.0
+surf_modify      all collide 1 
+
+#####
+species			ar.species Ar
+mixture			air Ar vstream 526.77 0.0 0.0 temp 200
+create_particles	air n 0
+
+if "${collision_style}== dsmc" then &
+  "collide			vss air ar.vss" &
+else &
+  "collide			bgk air ${collision_style} ar.bgk" &
+  "collide_bgk_modify pr_num 0.66667 time_ave 0.999 reset_wmax 0.9999 "
+
+fix		    	in emit/face air xlo yhi 
+fix			    bal1 balance 100 1.2 rcb time 
+fix			    bal2 balance 1000 1.02 rcb time 
+
+timestep 		${dtm}
+adapt_grid	    all refine surf all 1e-6 iterate 3 maxlevel 2 dir 1 0 0 
+
+stats			100
+stats_style		step cpu np
+				
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+run 				500
+adapt_grid	    all refine particle 400 400 iterate 3 
+
+run             8000
+stats			1000
+adapt_grid	    all refine particle 400 400 iterate 3 
+
+run             10000
+
+write_grid	    data/finalgrid.${collision_style}.dtm${dtm}.dat
+
+stats			1000
+
+compute			1 grid all air n nrho massrho u v w 
+compute			2 thermal/grid all air temp press
+fix				1 ave/grid all 1 10000 10000 c_1[*] c_2[*]  ave running
+dump				1 grid all 10000 data/grid.${collision_style}.dtm${dtm}.*.dat xc yc id f_1[*]
+dump_modify		1 format float %12.5g
+
+compute		    3 surf all all n nwt press ke fx fy px py shx shy
+fix 		    	2 ave/surf all 1 10000 10000 c_3[*] ave running
+dump		    	2 surf all 10000 data/surf.${collision_style}.dtm${dtm}.*.dat id v1x v1y v2x v2y f_2[*]
+dump_modify		2 format float %12.5g
+
+run 				1000000
+
+
+
+next collision_style
+jump ${this_filename}
+
+next dtm
+jump ${this_filename}
