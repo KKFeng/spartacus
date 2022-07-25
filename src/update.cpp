@@ -785,6 +785,7 @@ template < int DIM, int SURF > void Update::move()
                 v = particles[i].v;
                 jpart->flag = PSURF + 1 + minsurf;
                 jpart->dtremain = dtremain;
+                jpart->dt_weight = particles[i].dt_weight;
                 jpart->weight = particles[i].weight;
                 pstop++;
               }
@@ -1027,6 +1028,7 @@ template < int DIM, int SURF > void Update::move()
             } else if (jpart) {
               jpart->flag = PSURF;
               jpart->dtremain = dtremain;
+              jpart->dt_weight = particles[i].dt_weight;
               jpart->weight = particles[i].weight;
               pstop++;
             }

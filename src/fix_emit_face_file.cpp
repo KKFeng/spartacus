@@ -433,6 +433,7 @@ void FixEmitFaceFile::perform_task()
           p = &particle->particles[particle->nlocal-1];
           p->flag = PINSERT;
           p->dtremain = dt * random->uniform();
+          p->dt_weight = 1;
 
           if (nfix_add_particle)
             modify->add_particle(particle->nlocal-1,temp_thermal,
@@ -487,6 +488,7 @@ void FixEmitFaceFile::perform_task()
         p = &particle->particles[particle->nlocal-1];
         p->flag = PINSERT;
         p->dtremain = dt * random->uniform();
+        p->dt_weight = 1;
 
         if (nfix_add_particle)
           modify->add_particle(particle->nlocal-1,temp_thermal,

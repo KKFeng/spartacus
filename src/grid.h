@@ -108,6 +108,7 @@ class Grid : protected Pointers {
     int proc;                 // proc that owns this cell
     int ilocal;               // index of this cell on owning proc
                               // must be correct for all ghost cells
+    int dt_weight;            // number of sub-timesteps devided in this cell 
 
     cellint neigh[6];         // info on 6 neighbor cells that fully overlap faces
                               // order = XLO,XHI,YLO,YHI,ZLO,ZHI
