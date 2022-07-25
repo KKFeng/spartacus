@@ -11,6 +11,18 @@
 
    See the README file in the top-level SPARTA directory.
 ------------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+*  SPARTACUS - SPARTA Combined with USp method,
+*  a unified stochastic particle (USP) method sovler implement within
+*  the framework of SPARTA.
+*
+*  Developer¡¯s repository:
+*  [GitHub]  https://github.com/KKFeng/spartacus
+*  or [Gitee]   https://gitee.com/kaikfeng/sparta-usp-para
+*
+*  Feng Kai, kfeng@buaa.edu.cn
+*  Beihang University
+------------------------------------------------------------------------- */
 
 #ifndef SPARTA_GRID_COMM_MACRO_H
 #define SPARTA_GRID_COMM_MACRO_H
