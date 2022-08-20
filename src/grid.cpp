@@ -137,6 +137,7 @@ Grid::Grid(SPARTA *sparta) : Pointers(sparta)
   copy = copymode = 0;
 
   gridCommMacro = new GridCommMacro(sparta);
+  is_dt_weight = 0;
 }
 
 /* ---------------------------------------------------------------------- */

@@ -18,7 +18,8 @@
           "type": "STRING"
         }
       ],
-      "remoteCopyAdditionalIncludeDirectories": []
+      "remoteCopyAdditionalIncludeDirectories": [],
+      "buildCommandArgs": "-j12"
     }
   ]
 }

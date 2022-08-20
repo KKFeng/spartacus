@@ -76,6 +76,9 @@ class Grid : protected Pointers {
   int copy,copymode;    // 1 if copy of class (prevents deallocation of
                         //  base class when child copy is destroyed)
 
+  int is_dt_weight;     // 1 if dt_weight of grid is not uniform
+
+
   // cell ID hash (owned + ghost, no sub-cells)
 
 #ifdef SPARTA_MAP
