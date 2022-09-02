@@ -78,11 +78,15 @@ void AdaptDtWeight::command(int narg, char **arg)
   MPI_Barrier(world);
   double time1 = MPI_Wtime();
 
+  grid->remove_ghosts();
+
   if (style == SURF) set_weight_surf();
   else if (style == VALUE) set_weight_value();
   else if (style == SAME) set_weight_same();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
   
+  grid->acquire_ghosts();
+  grid->find_neighbors();
 
   MPI_Barrier(world);
   double time2 = MPI_Wtime();
