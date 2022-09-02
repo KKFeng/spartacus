@@ -153,15 +153,29 @@ void Update::init()
 
   // choose the appropriate move method
 
-  if (domain->dimension == 3) {
-    if (surf->exist) moveptr = &Update::move<3,1>;
-    else moveptr = &Update::move<3,0>;
-  } else if (domain->axisymmetric) {
-    if (surf->exist) moveptr = &Update::move<1,1>;
-    else moveptr = &Update::move<1,0>;
-  } else if (domain->dimension == 2) {
-    if (surf->exist) moveptr = &Update::move<2,1>;
-    else moveptr = &Update::move<2,0>;
+  if (grid->is_dt_weight) {
+      if (domain->dimension == 3) {
+          if (surf->exist) moveptr = &Update::move_weighted<3,1>;
+          else moveptr = &Update::move_weighted<3,0>;
+      } else if (domain->axisymmetric) {
+          if (surf->exist) moveptr = &Update::move_weighted<1,1>;
+          else moveptr = &Update::move_weighted<1,0>;
+      } else if (domain->dimension == 2) {
+          if (surf->exist) moveptr = &Update::move_weighted<2,1>;
+          else moveptr = &Update::move_weighted<2,0>;
+      }
+  }
+  else {
+      if (domain->dimension == 3) {
+          if (surf->exist) moveptr = &Update::move<3,1>;
+          else moveptr = &Update::move<3,0>;
+      } else if (domain->axisymmetric) {
+          if (surf->exist) moveptr = &Update::move<1,1>;
+          else moveptr = &Update::move<1,0>;
+      } else if (domain->dimension == 2) {
+          if (surf->exist) moveptr = &Update::move<2,1>;
+          else moveptr = &Update::move<2,0>;
+      }
   }
 
   // check gravity vector
@@ -1154,6 +1168,7 @@ template < int DIM, int SURF > void Update::move()
 }
 
 /* ----------------------------------------------------------------------
+   move with adaptive time step, i.e., different cell have different dt_weight
    advect particles thru grid
    DIM = 2/3 for 2d/3d, 1 for 2d axisymmetric
    SURF = 0/1 for no surfs or surfs
@@ -1170,7 +1185,8 @@ template < int DIM, int SURF > void Update::move_weighted()
     cellint* neigh;
     double dtremain, frac, newfrac, param, minparam, rnew, dtsurf, tc, tmp;
     double xnew[3], xhold[3], xc[3], vc[3], minxc[3], minvc[3];
-    double* x, * v, * lo, * hi;
+    double *x, *v; // current loc & velocity of this particle
+    double *lo, *hi; // bound of the cell that this part currently located
     Grid::ParentCell* pcell;
     Surf::Tri* tri;
     Surf::Line* line;
