@@ -221,10 +221,10 @@ void AdaptDtWeight::set_weight_surf() {
         for (j = 0; j < nsurf; j++) {
             int m = csurfs[j];
             if (dim == 2) {
-                if (!(lines[m].mask & sgroupbit)) continue;
+                if ((lines[m].mask & sgroupbit)) break;
             }
             else {
-                if (!(tris[m].mask & sgroupbit)) continue;
+                if ((tris[m].mask & sgroupbit)) break;
             }
         }
         if (j == nsurf) continue;
