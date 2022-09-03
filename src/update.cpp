@@ -1193,6 +1193,7 @@ template < int DIM, int SURF > void Update::move_weighted()
     Particle::OnePart iorig;
     Particle::OnePart* particles;
     Particle::OnePart* ipart, * jpart;
+    int dt_weight;
 
     // for 2d and axisymmetry only
     // xnew,xc passed to geometry routines which use or set z component
@@ -1228,7 +1229,7 @@ template < int DIM, int SURF > void Update::move_weighted()
     int notfirst = 0;
 
     // DEBUG
-
+  
     while (1) {
 
         // loop over particles
@@ -1269,14 +1270,18 @@ template < int DIM, int SURF > void Update::move_weighted()
             // let pflag = PEXIT persist to check during axisymmetric cell crossing
 
             if (pflag == PKEEP) {
-                dtremain = dt;
+                icell = particles[i].icell;
+                dt_weight = cells[icell].dt_weight;
+                dtremain = dt/dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
                 if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
                 if (perturbflag) (this->*moveperturb)(dtremain, xnew, v);
             }
             else if (pflag == PINSERT) {
-                dtremain = particles[i].dtremain;
+                icell = particles[i].icell;
+                dt_weight = cells[icell].dt_weight;
+                dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
                 if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
@@ -1289,19 +1294,24 @@ template < int DIM, int SURF > void Update::move_weighted()
                     if (DIM < 3 && SURF) icell = split2d(icell, x);
                     particles[i].icell = icell;
                 }
-                dtremain = particles[i].dtremain;
+                dt_weight = cells[icell].dt_weight;
+                dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
                 if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
             }
             else if (pflag == PEXIT) {
-                dtremain = particles[i].dtremain;
+                icell = particles[i].icell;
+                dt_weight = cells[icell].dt_weight;
+                dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
                 if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
             }
             else if (pflag >= PSURF) {
-                dtremain = particles[i].dtremain;
+                icell = particles[i].icell;
+                dt_weight = cells[icell].dt_weight;
+                dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
                 if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
@@ -1666,7 +1676,9 @@ template < int DIM, int SURF > void Update::move_weighted()
 
                             if (nsurf_tally)
                                 memcpy(&iorig, &particles[i], sizeof(Particle::OnePart));
-
+             
+                            // NOTE: these collide may be corresponding to compute surf !!!
+                            // as well as surf_tally !!!!!!!!
                             if (DIM == 3)
                                 jpart = surf->sc[tri->isc]->
                                 collide(ipart, tri->norm, dtremain, tri->isr, reaction);
@@ -1750,7 +1762,8 @@ template < int DIM, int SURF > void Update::move_weighted()
                         } // END of cflag if section that performed collision
 
                         // no collision, so restore saved xnew if changed it above
-
+          
+                        // if any collision accurs, this loop has jumped out above!!
                         if (outface != INTERIOR) {
                             xnew[0] = xhold[0];
                             xnew[1] = xhold[1];
@@ -1785,6 +1798,7 @@ template < int DIM, int SURF > void Update::move_weighted()
                 // reset particle x to be exactly on cell face
                 // for axisymmetry, must reset xnew for next iteration since v changed
 
+                // NOTE: only part that crossing cell bound do the following work.
                 dtremain *= 1.0 - frac;
                 exclude = -1;
 
@@ -1810,8 +1824,8 @@ template < int DIM, int SURF > void Update::move_weighted()
                 // if parent, use id_find_child to identify child cell
                 //   result can be -1 for unknown cell, occurs when:
                 //   (a) particle hits face of ghost child cell
-            //   (b) the ghost cell extends beyond ghost halo
-            //   (c) cell on other side of face is a parent
+                //   (b) the ghost cell extends beyond ghost halo
+                //   (c) cell on other side of face is a parent
                 //   (d) its child, which the particle is in, is entirely beyond my halo
                 // if new cell is child and surfs exist, check if a split cell
 
@@ -1953,9 +1967,13 @@ template < int DIM, int SURF > void Update::move_weighted()
                     icell = icell_original;
                     particles[i].flag = PEXIT;
                     particles[i].dtremain = dtremain;
+                    particles[i].dt_weight = cells[icell].dt_weight;
                     entryexit = 1;
                     break;
                 }
+
+                dt_weight = cells[icell].dt_weight;
+                dtremain *= particles[i].dt_weight / dt_weight;
 
                 // if nsurf < 0, new cell is EMPTY ghost
                 // exit with particle flag = PENTRY, so receiver can continue move
@@ -1963,6 +1981,7 @@ template < int DIM, int SURF > void Update::move_weighted()
                 if (cells[icell].nsurf < 0) {
                     particles[i].flag = PENTRY;
                     particles[i].dtremain = dtremain;
+                    particles[i].dt_weight = cells[icell].dt_weight;
                     entryexit = 1;
                     break;
                 }
