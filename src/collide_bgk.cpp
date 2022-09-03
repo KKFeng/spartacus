@@ -462,7 +462,7 @@ template < int MOD > void CollideBGK::computeMacro()
 
         double nrho = cinfo.count * update->fnum * cinfo.weight / cinfo.volume;
         mean_nmacro.tao = nrho * update->boltz * pow(ps.T_ref, ps.omega)
-            * pow(cmacro.Temp, 1 - ps.omega) * update->dt / ps.mu_ref / 2.0;
+            * pow(cmacro.Temp, 1 - ps.omega) * update->dt / cell.dt_weight / ps.mu_ref / 2.0;
         double p = 0.0;
         if (MOD == USP|| MOD == SBGK) {
             double factor = mass * update->fnum * cinfo.weight / cinfo.volume;
