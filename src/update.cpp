@@ -1967,7 +1967,7 @@ template < int DIM, int SURF > void Update::move_weighted()
 
                 dt_weight = cells[icell].dt_weight;
                 if (particles[i].dt_weight != dt_weight) {
-                    dtremain *= particles[i].dt_weight / dt_weight;
+                    dtremain = dtremain * particles[i].dt_weight / dt_weight;
                     particles[i].dt_weight = dt_weight;
                     xnew[0] = x[0] + dtremain * v[0];
                     xnew[1] = x[1] + dtremain * v[1];

@@ -120,6 +120,7 @@ void CollideBGK::collisions()
     else if (bgk_mod == ESBGK) computeMacro<ESBGK>();
 
     // loop over cells I own
+    Grid::ChildCell* cells = grid->cells;
     Grid::ChildInfo* cinfo = grid->cinfo;
     Particle::OnePart* particles = particle->particles;
     int* next = particle->next;
@@ -127,7 +128,7 @@ void CollideBGK::collisions()
         int np = cinfo[icell].count;
         if (!grid->cinfo[icell].macro.do_relaxation) continue;
         int ip = cinfo[icell].first;
-        double volume = cinfo[icell].volume / cinfo[icell].weight;
+        double volume = cinfo[icell].volume / cinfo[icell].weight * cells[icell].dt_weight;
         if (volume == 0.0) error->one(FLERR, "Collision cell volume is zero");
 
         // setup particle list for this cell
@@ -460,12 +461,12 @@ template < int MOD > void CollideBGK::computeMacro()
             continue;
         }
 
-        double nrho = cinfo.count * update->fnum * cinfo.weight / cinfo.volume;
+        double nrho = cinfo.count * update->fnum * cinfo.weight / cell.dt_weight / cinfo.volume;
         mean_nmacro.tao = nrho * update->boltz * pow(ps.T_ref, ps.omega)
             * pow(cmacro.Temp, 1 - ps.omega) * update->dt / cell.dt_weight / ps.mu_ref / 2.0;
         double p = 0.0;
         if (MOD == USP|| MOD == SBGK) {
-            double factor = mass * update->fnum * cinfo.weight / cinfo.volume;
+            double factor = mass * update->fnum * cinfo.weight / cell.dt_weight / cinfo.volume;
             for (int i = 0; i < 3; ++i) {
                 pij[i] = factor * (sum_vij[i] - np * v[i] * v[i]);
             }
