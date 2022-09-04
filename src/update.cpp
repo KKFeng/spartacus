@@ -1268,10 +1268,9 @@ template < int DIM, int SURF > void Update::move_weighted()
             // not to PENTRY,PEXIT since are just re-computing xnew of sender
             // set xnew[2] to linear move for axisymmetry, will be remapped later
             // let pflag = PEXIT persist to check during axisymmetric cell crossing
-
+            icell = particles[i].icell;
+            dt_weight = cells[icell].dt_weight;
             if (pflag == PKEEP) {
-                icell = particles[i].icell;
-                dt_weight = cells[icell].dt_weight;
                 dtremain = dt/dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
@@ -1279,8 +1278,6 @@ template < int DIM, int SURF > void Update::move_weighted()
                 if (perturbflag) (this->*moveperturb)(dtremain, xnew, v);
             }
             else if (pflag == PINSERT) {
-                icell = particles[i].icell;
-                dt_weight = cells[icell].dt_weight;
                 dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
@@ -1294,23 +1291,18 @@ template < int DIM, int SURF > void Update::move_weighted()
                     if (DIM < 3 && SURF) icell = split2d(icell, x);
                     particles[i].icell = icell;
                 }
-                dt_weight = cells[icell].dt_weight;
                 dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
                 if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
             }
             else if (pflag == PEXIT) {
-                icell = particles[i].icell;
-                dt_weight = cells[icell].dt_weight;
                 dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
                 if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
             }
             else if (pflag >= PSURF) {
-                icell = particles[i].icell;
-                dt_weight = cells[icell].dt_weight;
                 dtremain = particles[i].dtremain * particles[i].dt_weight / dt_weight;
                 xnew[0] = x[0] + dtremain * v[0];
                 xnew[1] = x[1] + dtremain * v[1];
@@ -1319,6 +1311,7 @@ template < int DIM, int SURF > void Update::move_weighted()
             }
 
             particles[i].flag = PKEEP;
+            particles[i].dt_weight = dt_weight;
             icell = particles[i].icell;
             lo = cells[icell].lo;
             hi = cells[icell].hi;
@@ -1973,7 +1966,14 @@ template < int DIM, int SURF > void Update::move_weighted()
                 }
 
                 dt_weight = cells[icell].dt_weight;
-                dtremain *= particles[i].dt_weight / dt_weight;
+                if (particles[i].dt_weight != dt_weight) {
+                    dtremain *= particles[i].dt_weight / dt_weight;
+                    particles[i].dt_weight = dt_weight;
+                    xnew[0] = x[0] + dtremain * v[0];
+                    xnew[1] = x[1] + dtremain * v[1];
+                    if (DIM != 2) xnew[2] = x[2] + dtremain * v[2];
+                    if (perturbflag) (this->*moveperturb)(dtremain, xnew, v);
+                }
 
                 // if nsurf < 0, new cell is EMPTY ghost
                 // exit with particle flag = PENTRY, so receiver can continue move
