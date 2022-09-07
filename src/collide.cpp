@@ -478,7 +478,7 @@ template < int NEARCP > void Collide::collisions_one()
     }
 
     ip = cinfo[icell].first;
-    volume = cinfo[icell].volume / cinfo[icell].weight;
+    volume = cinfo[icell].volume / cinfo[icell].weight * grid->cells[icell].dt_weight;
     if (volume == 0.0) error->one(FLERR,"Collision cell volume is zero");
 
     // setup particle list for this cell
@@ -615,7 +615,7 @@ template < int NEARCP > void Collide::collisions_group()
     np = cinfo[icell].count;
     if (np <= 1) continue;
     ip = cinfo[icell].first;
-    volume = cinfo[icell].volume / cinfo[icell].weight;
+    volume = cinfo[icell].volume / cinfo[icell].weight * grid->cells[icell].dt_weight;
     if (volume == 0.0) error->one(FLERR,"Collision cell volume is zero");
 
     // reallocate plist and p2g if necessary
@@ -889,7 +889,7 @@ void Collide::collisions_one_ambipolar()
     np = cinfo[icell].count;
     if (np <= 1) continue;
     ip = cinfo[icell].first;
-    volume = cinfo[icell].volume / cinfo[icell].weight;
+    volume = cinfo[icell].volume / cinfo[icell].weight * grid->cells[icell].dt_weight;
     if (volume == 0.0) error->one(FLERR,"Collision cell volume is zero");
 
     // setup particle list for this cell
@@ -1183,7 +1183,7 @@ void Collide::collisions_group_ambipolar()
     np = cinfo[icell].count;
     if (np <= 1) continue;
     ip = cinfo[icell].first;
-    volume = cinfo[icell].volume / cinfo[icell].weight;
+    volume = cinfo[icell].volume / cinfo[icell].weight * grid->cells[icell].dt_weight;
     if (volume == 0.0) error->one(FLERR,"Collision cell volume is zero");
 
     // reallocate plist and p2g if necessary

@@ -305,7 +305,7 @@ void ComputePFluxGrid::post_process_grid(int index, int nsample,
         summass = etally[icell][mass];
         if (summass == 0.0) vec[k] = 0.0;
         else {
-          wt = fnum * cinfo[icell].weight / cinfo[icell].volume;
+          wt = fnum * cinfo[icell].weight / grid->cells[icell].dt_weight / cinfo[icell].volume;
 	  summv = etally[icell][mv];
 	  vec[k] = wt/nsample * (etally[icell][mvv] - summv*summv/summass);
 	}
@@ -330,7 +330,7 @@ void ComputePFluxGrid::post_process_grid(int index, int nsample,
         summass = etally[icell][mass];
         if (summass == 0.0) vec[k] = 0.0;
         else {
-          wt = fnum * cinfo[icell].weight / cinfo[icell].volume;
+          wt = fnum * cinfo[icell].weight / grid->cells[icell].dt_weight / cinfo[icell].volume;
 	  vec[k] = wt/nsample * (etally[icell][mvv] -
 				 etally[icell][mv1]*etally[icell][mv2]/summass);
 	}

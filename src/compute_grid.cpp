@@ -384,7 +384,7 @@ void ComputeGrid::post_process_grid(int index, int nsample,
         norm = cinfo[icell].volume;
         if (norm == 0.0) vec[k] = 0.0;
         else {
-          wt = fnum * cinfo[icell].weight / norm;
+          wt = fnum * cinfo[icell].weight / grid->cells[icell].dt_weight / norm;
           vec[k] = wt * etally[icell][count] / nsample;
         }
         k += nstride;
@@ -404,7 +404,7 @@ void ComputeGrid::post_process_grid(int index, int nsample,
         norm = cinfo[icell].volume;
         if (norm == 0.0) vec[k] = 0.0;
         else {
-          wt = fnum * cinfo[icell].weight / norm;
+          wt = fnum * cinfo[icell].weight / grid->cells[icell].dt_weight / norm;
           vec[k] = wt * etally[icell][mass] / nsample;
         }
         k += nstride;
@@ -518,7 +518,7 @@ void ComputeGrid::post_process_grid(int index, int nsample,
         norm = cinfo[icell].volume;
         if (norm == 0.0) vec[k] = 0.0;
         else {
-          wt = fnum * cinfo[icell].weight / norm;
+          wt = fnum * cinfo[icell].weight / grid->cells[icell].dt_weight / norm;
           vec[k] = wt * etally[icell][mom] / nsample;
         }
         k += nstride;
@@ -538,7 +538,7 @@ void ComputeGrid::post_process_grid(int index, int nsample,
         norm = cinfo[icell].volume;
         if (norm == 0.0) vec[k] = 0.0;
         else {
-          wt = fnum * cinfo[icell].weight / norm;
+          wt = fnum * cinfo[icell].weight / grid->cells[icell].dt_weight / norm;
           vec[k] = eprefactor * wt * etally[icell][ke] / nsample;
         }
         k += nstride;

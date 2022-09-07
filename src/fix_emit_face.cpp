@@ -403,7 +403,7 @@ void FixEmitFace::create_task(int icell)
     for (isp = 0; isp < nspecies; isp++) {
       ntargetsp = mol_inflow(indot,vscale[isp],fraction[isp]);
       ntargetsp *= nrho*area*dt / fnum;
-      ntargetsp /= cinfo[icell].weight;
+      ntargetsp /= cinfo[icell].weight / cells[icell].dt_weight;
       tasks[ntask].ntarget += ntargetsp;
       if (perspecies) tasks[ntask].ntargetsp[isp] = ntargetsp;
     }
@@ -882,7 +882,7 @@ void FixEmitFace::subsonic_inflow()
       vscale = sqrt(2.0 * boltz * temp_thermal / mass);
       ntargetsp = mol_inflow(indot,vscale,fraction[isp]);
       ntargetsp *= nrho*area*dt / fnum;
-      ntargetsp /= cinfo[icell].weight;
+      ntargetsp /= cinfo[icell].weight / grid->cells[icell].dt_weight;
       tasks[i].ntarget += ntargetsp;
       if (perspecies) tasks[i].ntargetsp[isp] = ntargetsp;
     }

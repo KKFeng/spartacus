@@ -947,7 +947,7 @@ int FixEmitFaceFile::interpolate(int icell)
     ntargetsp = frac_user *
       mol_inflow(indot,tasks[ntask].vscale[isp],tasks[ntask].fraction[isp]);
     ntargetsp *= tasks[ntask].nrho*area*dt / fnum;
-    ntargetsp /= cinfo[icell].weight;
+    ntargetsp /= cinfo[icell].weight / cells[icell].dt_weight;
     tasks[ntask].ntarget += ntargetsp;
     if (perspecies) tasks[ntask].ntargetsp[isp] = ntargetsp;
   }
@@ -1073,7 +1073,7 @@ void FixEmitFaceFile::subsonic_inflow()
       vscale = sqrt(2.0 * boltz * temp_thermal / mass);
       ntargetsp = mol_inflow(indot,vscale,tasks[i].fraction[isp]);
       ntargetsp *= nrho*area*dt / fnum;
-      ntargetsp /= cinfo[icell].weight;
+      ntargetsp /= cinfo[icell].weight / grid->cells[icell].dt_weight;
       tasks[i].ntarget += ntargetsp;
       if (perspecies) tasks[i].ntargetsp[isp] = ntargetsp;
     }
