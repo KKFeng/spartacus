@@ -46,7 +46,8 @@ class AdaptDtWeight : protected Pointers {
   double surf_dist; // for style = near_surf. distance to cell center
   struct MyRegion
   {
-	  double lo[3], hi[3];
+	  //double lo[3], hi[3];
+	  double x[3], radius;
   };
 
   MyRegion *regionlist;
@@ -72,7 +73,7 @@ class AdaptDtWeight : protected Pointers {
   double value_compute(int icell);
   double value_fix(int icell);
 
-  void add_region(double*, double*);
+  void add_region(double*, double);
   bool in_region(MyRegion&, double*);
   void gather_allregion();
 

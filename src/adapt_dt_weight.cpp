@@ -37,6 +37,7 @@ enum{SURF,NEAR_SURF,VALUE,COMPUTE,FIX,SAME};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 
 #define DELTA_RL 64 // how to grow region list
+#define BIG 1.0e20
 
 /* ---------------------------------------------------------------------- */
 
@@ -290,11 +291,10 @@ void AdaptDtWeight::set_weight_nearsurf() {
             }
         }
         if (j == nsurf) continue;
-        double lo[3], hi[3];
+        double x[3];
         for (int i = 0; i < 3; ++i) {
-            lo[i] = cells[icell].lo[i] - surf_dist;
-            hi[i] = cells[icell].hi[i] + surf_dist;
-            add_region(lo, hi);
+            x[i] = (cells[icell].lo[i] + cells[icell].hi[i])/2;
+            add_region(x, surf_dist);
         }
     }
 
@@ -306,11 +306,24 @@ void AdaptDtWeight::set_weight_nearsurf() {
     }
 
     MyRegion maxregion = regionlist[0];
+    double lo[3]{ BIG, BIG, BIG }, hi[3]{ -BIG, -BIG, -BIG };
     for (int i = 1; i < nregion; ++i) {
         for (int j = 0; j < 3; ++j) {
-            maxregion.lo[j] = MIN(maxregion.lo[j], regionlist[i].lo[j]);
-            maxregion.hi[j] = MAX(maxregion.hi[j], regionlist[i].hi[j]);
+            lo[j] = MIN(lo[j], regionlist[i].x[j]);
+            hi[j] = MAX(hi[j], regionlist[i].x[j]);
         }
+    }
+    if (dim == 3) {
+        for (int j = 0; j < 3; ++j) maxregion.x[j] = (hi[j] + lo[j]) / 2;
+        maxregion.radius = sqrt((hi[0] - lo[0]) * (hi[0] - lo[0])
+            + (hi[1] - lo[1]) * (hi[1] - lo[1]) 
+            + (hi[2] - lo[2]) * (hi[2] - lo[2])) / 2 + surf_dist;
+    } else {
+        maxregion.x[0] = (hi[0] + lo[0]) / 2;
+        maxregion.x[1] = (hi[1] + lo[1]) / 2;
+        maxregion.x[2] = 0.5;
+        maxregion.radius = sqrt((hi[0] - lo[0]) * (hi[0] - lo[0])
+            + (hi[1] - lo[1]) * (hi[1] - lo[1])) / 2 + surf_dist;
     }
 
     for (int icell = 0; icell < nglocal; icell++) {
@@ -408,21 +421,27 @@ double AdaptDtWeight::value_fix(int icell)
     return value;
 }
 
-void AdaptDtWeight::add_region(double* lo, double* hi) {
+void AdaptDtWeight::add_region(double* x, double radius) {
     if (nregion == maxregion) {
         maxregion += DELTA_RL;
         memory->grow(regionlist, maxregion, "adapt_dt_weight:regionlist");
     }
-    memcpy(regionlist[nregion].lo, lo, 3 * sizeof(double));
-    memcpy(regionlist[nregion].hi, hi, 3 * sizeof(double));   
+    memcpy(regionlist[nregion].x, x, 3 * sizeof(double));
+    regionlist[nregion].radius = radius;
     ++nregion;
 }
 
 bool AdaptDtWeight::in_region(MyRegion& region, double* x) {
-    if (x[0] >= region.lo[0] && x[0] <= region.hi[0] &&
-        x[1] >= region.lo[1] && x[1] <= region.hi[1] &&
-        x[2] >= region.lo[2] && x[2] <= region.hi[2])
-        return true;
+    if (domain->dimension == 3) {
+        if ((region.x[0] - x[0]) * (region.x[0] - x[0])
+            + (region.x[1] - x[1]) * (region.x[1] - x[1])
+            + (region.x[2] - x[2]) * (region.x[2] - x[2]) <= region.radius * region.radius)
+            return true;
+    } else {
+        if ((region.x[0] - x[0]) * (region.x[0] - x[0])
+            + (region.x[1] - x[1]) * (region.x[1] - x[1]) <= region.radius * region.radius)
+            return true;
+    }
     return false;
 }
 
