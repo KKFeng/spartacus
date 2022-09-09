@@ -39,9 +39,18 @@ class AdaptDtWeight : protected Pointers {
  private:
   int me,nprocs;
   int groupbit, style;
+  int mod; //max or min or none(default)
 
-  // style = surf
+  // style = surf or near_surf
   int sgroupbit, surf_ndt;
+  double surf_dist; // for style = near_surf. distance to cell center
+  struct MyRegion
+  {
+	  double lo[3], hi[3];
+  };
+
+  MyRegion *regionlist;
+  int nregion, maxregion;
 
   // style = value
   int valuewhich, valindex,icompute,ifix;
@@ -57,10 +66,15 @@ class AdaptDtWeight : protected Pointers {
   // method
 
   void set_weight_surf();
+  void set_weight_nearsurf();
   void set_weight_value();
   void set_weight_same();
   double value_compute(int icell);
   double value_fix(int icell);
+
+  void add_region(double*, double*);
+  bool in_region(MyRegion&, double*);
+  void gather_allregion();
 
 };
 

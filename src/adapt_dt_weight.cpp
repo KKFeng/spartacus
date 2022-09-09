@@ -26,16 +26,17 @@
 #include "fix.h"
 #include "fix_ave_grid.h"
 #include "error.h"
+#include "memory.h"
+#include "comm.h"
 
 using namespace SPARTA_NS;
 
 
-enum{SURF,VALUE,COMPUTE,FIX,SAME};
+enum{DT_MAX, DT_MIN, DT_NONE};
+enum{SURF,NEAR_SURF,VALUE,COMPUTE,FIX,SAME};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 
-#define INVOKED_PER_GRID 16
-#define DELTA_LIST 1024
-#define BIG 1.0e20
+#define DELTA_RL 64 // how to grow region list
 
 /* ---------------------------------------------------------------------- */
 
@@ -43,6 +44,9 @@ AdaptDtWeight::AdaptDtWeight(SPARTA *sparta) : Pointers(sparta)
 {
   me = comm->me;
   nprocs = comm->nprocs;
+  mod = DT_NONE;
+  nregion = maxregion = 0;
+  regionlist = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -81,6 +85,7 @@ void AdaptDtWeight::command(int narg, char **arg)
   grid->remove_ghosts();
 
   if (style == SURF) set_weight_surf();
+  else if (style == NEAR_SURF) set_weight_nearsurf();
   else if (style == VALUE) set_weight_value();
   else if (style == SAME) set_weight_same();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
@@ -105,7 +110,7 @@ void AdaptDtWeight::command(int narg, char **arg)
 }
 
 /* ----------------------------------------------------------------------
-   process command args for both adapt_grid and fix adapt
+   process command args for adapt_dt_weight
 ------------------------------------------------------------------------- */
 
 void AdaptDtWeight::process_args(int narg, char **arg)
@@ -127,6 +132,17 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       sgroupbit = surf->bitmask[igroup];
       surf_ndt = input->inumeric(FLERR,arg[iarg+2]);
       iarg += 3;
+
+  } else if (strcmp(arg[iarg], "near_surf") == 0) {
+      if (iarg + 4 > narg) error->all(FLERR, "Illegal adapt command");
+      style = NEAR_SURF;
+      int igroup = surf->find_group(arg[iarg + 1]);
+      if (igroup < 0)
+          error->all(FLERR, "Adapt command surface group does not exist");
+      sgroupbit = surf->bitmask[igroup];
+      surf_dist = input->numeric(FLERR, arg[iarg + 2]);
+      surf_ndt = input->inumeric(FLERR, arg[iarg + 3]);
+      iarg += 4;
 
   } else if (strcmp(arg[iarg],"value") == 0) {
       if (iarg+4 > narg) error->all(FLERR,"Illegal adapt command");
@@ -162,6 +178,18 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       iarg += 2;
 
   } else error->all(FLERR,"Illegal adapt command");
+
+  while (iarg < narg) {
+      if (strcmp(arg[iarg], "mode") == 0) {
+          if (iarg + 2 > narg) error->all(FLERR, "Illegal adapt command");
+          if (strcmp(arg[iarg + 1], "max") == 0) mod = DT_MAX;
+          else if (strcmp(arg[iarg + 1], "min") == 0) mod = DT_MIN;
+          else if (strcmp(arg[iarg + 1], "none") == 0) mod = DT_NONE;
+          else error->all(FLERR, "Illegal adapt command");
+          iarg += 2;
+      }      
+      else error->all(FLERR, "Illegal adapt command");
+  }
 
 }
 
@@ -232,10 +260,76 @@ void AdaptDtWeight::set_weight_surf() {
             }
         }
         if (j == nsurf) continue;
-
-        cells[icell].dt_weight = surf_ndt;
+        if (mod==DT_MAX) cells[icell].dt_weight = MAX(surf_ndt, cells[icell].dt_weight);
+        else if (mod==DT_MIN) cells[icell].dt_weight = MIN(surf_ndt, cells[icell].dt_weight);
+        else cells[icell].dt_weight = surf_ndt;
     }
 }
+
+void AdaptDtWeight::set_weight_nearsurf() {
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Surf::Line* lines = surf->lines;
+    int dim = domain->dimension;
+    Surf::Tri* tris = surf->tris;
+    int nglocal = grid->nlocal;
+    nregion = 0;
+    for (int icell = 0; icell < nglocal; icell++) {
+        if (cinfo[icell].type != OVERLAP) continue;
+        if (!cells[icell].nsurf) continue;
+        int nsurf = cells[icell].nsurf;
+        surfint* csurfs = cells[icell].csurfs;
+        int j;
+        for (j = 0; j < nsurf; j++) {
+            int m = csurfs[j];
+            if (dim == 2) {
+                if ((lines[m].mask & sgroupbit)) break;
+            }
+            else {
+                if ((tris[m].mask & sgroupbit)) break;
+            }
+        }
+        if (j == nsurf) continue;
+        double* lo, * hi;
+        for (int i = 0; i < 3; ++i) {
+            lo[i] = cells[icell].lo[i] - surf_dist;
+            hi[i] = cells[icell].hi[i] + surf_dist;
+            add_region(lo, hi);
+        }
+    }
+
+    gather_allregion();
+
+    if (!nregion) {
+        error->warning(FLERR, "adapt_dt_weight command: no specific group surf exist");
+        return;
+    }
+
+    MyRegion maxregion = regionlist[0];
+    for (int i = 1; i < nregion; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            maxregion.lo[j] = MIN(maxregion.lo[j], regionlist[i].lo[j]);
+            maxregion.hi[j] = MAX(maxregion.hi[j], regionlist[i].hi[j]);
+        }
+    }
+
+    for (int icell = 0; icell < nglocal; icell++) {
+        if (!(cinfo[icell].mask & groupbit)) continue;
+        if (cinfo[icell].type == INSIDE) continue;
+        double x[3];
+        int i;
+        for (i = 0; i < 3; ++i) x[i] = (cells[icell].lo[i] + cells[icell].hi[i]) / 2;
+        if (!in_region(maxregion, x)) continue;
+        for (i = 0; i < nregion; ++i) {
+            if (in_region(regionlist[i], x)) break;
+        }
+        if (i == nregion) continue;
+        if (mod == DT_MAX) cells[icell].dt_weight = MAX(same_dt, cells[icell].dt_weight);
+        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(same_dt, cells[icell].dt_weight);
+        else cells[icell].dt_weight = same_dt;
+    }
+}
+
 
 void AdaptDtWeight::set_weight_value() {
     int icell, nsplit, jcell;
@@ -267,19 +361,6 @@ void AdaptDtWeight::set_weight_value() {
             else if (valuewhich == FIX) value = value_fix(icell);
         }
         else continue;
-        //else {
-        //    // split cells
-        //    nsplit = cells[icell].nsplit;
-        //    csubs = sinfo[cells[icell].isplit].csubs;
-        //    value = -BIG;
-        //    for (int j = 0; j < nsplit; j++) {
-        //        jcell = csubs[j];
-        //        if (valuewhich == COMPUTE)
-        //            value = MAX(value, value_compute(jcell));
-        //        else if (valuewhich == FIX)
-        //            value = MAX(value, value_fix(jcell));
-        //    }
-
         cells[icell].dt_weight = (int)MIN(max_dt,MAX(1,value/thresh));
     }
 }
@@ -291,7 +372,9 @@ void AdaptDtWeight::set_weight_same() {
     for (int icell = 0; icell < nglocal; icell++) {
         if (!(cinfo[icell].mask & groupbit)) continue;
         if (cinfo[icell].type == INSIDE) continue;
-        cells[icell].dt_weight = same_dt;
+        if (mod == DT_MAX) cells[icell].dt_weight = MAX(same_dt, cells[icell].dt_weight);
+        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(same_dt, cells[icell].dt_weight);
+        else cells[icell].dt_weight = same_dt;
     }
 }
 
@@ -323,4 +406,49 @@ double AdaptDtWeight::value_fix(int icell)
     else value = fix->array_grid[icell][valindex - 1];
 
     return value;
+}
+
+void AdaptDtWeight::add_region(double* lo, double* hi) {
+    if (nregion == maxregion) {
+        maxregion += DELTA_RL;
+        memory->grow(regionlist, maxregion, "adapt_dt_weight:regionlist");
+    }
+    memcpy(regionlist[nregion].lo, lo, 3 * sizeof(double));
+    memcpy(regionlist[nregion].hi, hi, 3 * sizeof(double));   
+    ++nregion;
+}
+
+bool AdaptDtWeight::in_region(MyRegion& region, double* x) {
+    if (x[0] >= region.lo[0] && x[0] <= region.hi[0] &&
+        x[1] >= region.lo[1] && x[1] <= region.hi[1] &&
+        x[2] >= region.lo[2] && x[2] <= region.hi[2])
+        return true;
+    return false;
+}
+
+void AdaptDtWeight::gather_allregion() {
+    int me = comm->me;
+    int nprocs = comm->nprocs; 
+    int nregionall;
+    MPI_Allreduce(&nregion, &nregionall, 1, MPI_INT, MPI_SUM, world);
+
+    int* recvcounts, * displs;
+    memory->create(recvcounts, nprocs, "grid:recvcounts");
+    memory->create(displs, nprocs, "grid:displs");
+
+    int nsend = nregion * sizeof(MyRegion);
+    MPI_Allgather(&nsend, 1, MPI_INT, recvcounts, 1, MPI_INT, world);
+    displs[0] = 0;
+    for (int i = 1; i < nprocs; i++) displs[i] = displs[i - 1] + recvcounts[i - 1];
+    MyRegion* myregionlist = new MyRegion[nregion];
+    memcpy(myregionlist, regionlist, nregion * sizeof(MyRegion));
+    nregion = nregionall;
+    if (nregion >= maxregion) {
+        maxregion = nregion;
+        memory->grow(regionlist, maxregion, "adapt_dt_weight:regionlist");
+    }
+    MPI_Allgatherv(myregionlist, nsend, MPI_CHAR, regionlist, recvcounts, displs, MPI_CHAR, world);
+
+    memory->destroy(recvcounts);
+    memory->destroy(displs);
 }
