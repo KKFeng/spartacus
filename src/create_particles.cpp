@@ -314,7 +314,7 @@ void CreateParticles::command(int narg, char **arg)
     for (int icell = 0; icell < nglocal; icell++) {
       if (cells[icell].nsplit > 1) continue;
       if (cinfo[icell].type != INSIDE)
-        flowvolme += cinfo[icell].volume / cinfo[icell].weight;
+        flowvolme += cinfo[icell].volume / cinfo[icell].weight * grid->cells[icell].dt_weight;
     }
     double flowvol;
     MPI_Allreduce(&flowvolme,&flowvol,1,MPI_DOUBLE,MPI_SUM,world);
@@ -480,7 +480,7 @@ void CreateParticles::create_local(bigint np)
     else if (domain->axisymmetric)
       volone = (hi[0]-lo[0]) * (hi[1]*hi[1]-lo[1]*lo[1])*MY_PI;
     else volone = (hi[0]-lo[0]) * (hi[1]-lo[1]);
-    volme += volone / cinfo[i].weight;
+    volme += volone / cinfo[i].weight * grid->cells[i].dt_weight;
   }
 
   double volupto;
@@ -554,7 +554,7 @@ void CreateParticles::create_local(bigint np)
     else if (domain->axisymmetric)
       volone = (hi[0]-lo[0]) * (hi[1]*hi[1]-lo[1]*lo[1])*MY_PI;
     else volone = (hi[0]-lo[0]) * (hi[1]-lo[1]);
-    volsum += volone / cinfo[i].weight;
+    volsum += volone / cinfo[i].weight * grid->cells[i].dt_weight;
 
     ntarget = nme * volsum/volme - nprev;
     npercell = static_cast<int> (ntarget);
@@ -671,7 +671,7 @@ void CreateParticles::create_local_twopass(bigint np)
     else if (domain->axisymmetric)
       volone = (hi[0]-lo[0]) * (hi[1]*hi[1]-lo[1]*lo[1])*MY_PI;
     else volone = (hi[0]-lo[0]) * (hi[1]-lo[1]);
-    volme += volone / cinfo[i].weight;
+    volme += volone / cinfo[i].weight * grid->cells[i].dt_weight;
   }
 
   double volupto;
@@ -747,7 +747,7 @@ void CreateParticles::create_local_twopass(bigint np)
     else if (domain->axisymmetric)
       volone = (hi[0]-lo[0]) * (hi[1]*hi[1]-lo[1]*lo[1])*MY_PI;
     else volone = (hi[0]-lo[0]) * (hi[1]-lo[1]);
-    volsum += volone / cinfo[i].weight;
+    volsum += volone / cinfo[i].weight * grid->cells[i].dt_weight;
 
     ntarget = nme * volsum/volme - nprev;
     npercell = static_cast<int> (ntarget);

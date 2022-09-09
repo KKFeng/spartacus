@@ -433,6 +433,7 @@ void FixEmitFaceFile::perform_task()
           p = &particle->particles[particle->nlocal-1];
           p->flag = PINSERT;
           p->dtremain = dt * random->uniform();
+          p->dt_weight = 1;
 
           if (nfix_add_particle)
             modify->add_particle(particle->nlocal-1,temp_thermal,
@@ -487,6 +488,7 @@ void FixEmitFaceFile::perform_task()
         p = &particle->particles[particle->nlocal-1];
         p->flag = PINSERT;
         p->dtremain = dt * random->uniform();
+        p->dt_weight = 1;
 
         if (nfix_add_particle)
           modify->add_particle(particle->nlocal-1,temp_thermal,
@@ -945,7 +947,7 @@ int FixEmitFaceFile::interpolate(int icell)
     ntargetsp = frac_user *
       mol_inflow(indot,tasks[ntask].vscale[isp],tasks[ntask].fraction[isp]);
     ntargetsp *= tasks[ntask].nrho*area*dt / fnum;
-    ntargetsp /= cinfo[icell].weight;
+    ntargetsp /= cinfo[icell].weight / cells[icell].dt_weight;
     tasks[ntask].ntarget += ntargetsp;
     if (perspecies) tasks[ntask].ntargetsp[isp] = ntargetsp;
   }
@@ -1071,7 +1073,7 @@ void FixEmitFaceFile::subsonic_inflow()
       vscale = sqrt(2.0 * boltz * temp_thermal / mass);
       ntargetsp = mol_inflow(indot,vscale,tasks[i].fraction[isp]);
       ntargetsp *= nrho*area*dt / fnum;
-      ntargetsp /= cinfo[icell].weight;
+      ntargetsp /= cinfo[icell].weight / grid->cells[icell].dt_weight;
       tasks[i].ntarget += ntargetsp;
       if (perspecies) tasks[i].ntargetsp[isp] = ntargetsp;
     }

@@ -90,6 +90,9 @@ ComputePropertyGrid::ComputePropertyGrid(SPARTA *sparta, int narg, char **arg) :
     } else if (strcmp(arg[iarg],"vol") == 0) {
       pack_choice[i] = &ComputePropertyGrid::pack_vol;
       index[i] = 11;
+    } else if (strcmp(arg[iarg],"dt_weight") == 0) {
+      pack_choice[i] = &ComputePropertyGrid::pack_dtweight;
+      index[i] = 12;
     } else error->all(FLERR,"Invalid keyword in compute property/grid command");
   }
 
@@ -345,4 +348,18 @@ void ComputePropertyGrid::pack_vol(int n)
     else buf[n] = 0.0;
     n += nvalues;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_dtweight(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cells[i].dt_weight;
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
 }

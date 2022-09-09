@@ -74,6 +74,9 @@ class Particle : protected Pointers {
     double evib;            // vibrational energy
     int flag;               // used for migration status
     double dtremain;        // portion of move timestep remaining
+    int dt_weight;          // number of sub-timesteps devided when moving this part last time
+                            // dtremain is relative to that sub-timestep size, thus need to be
+                            // re-caculated in new cell
     double weight;          // particle or cell weight, if weighting enabled
   };
 

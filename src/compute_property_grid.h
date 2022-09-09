@@ -54,6 +54,7 @@ class ComputePropertyGrid : public Compute {
   void pack_yc(int);
   void pack_zc(int);
   void pack_vol(int);
+  void pack_dtweight(int);
 };
 
 }

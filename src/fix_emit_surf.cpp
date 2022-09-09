@@ -377,7 +377,7 @@ void FixEmitSurf::create_task(int icell)
     for (isp = 0; isp < nspecies; isp++) {
       ntargetsp = mol_inflow(indot,vscale[isp],fraction[isp]);
       ntargetsp *= nrho*area*dt / fnum;
-      ntargetsp /= cinfo[icell].weight;
+      ntargetsp /= cinfo[icell].weight / cells[icell].dt_weight;
       tasks[ntask].ntarget += ntargetsp;
       if (perspecies) tasks[ntask].ntargetsp[isp] = ntargetsp;
     }
@@ -545,6 +545,7 @@ void FixEmitSurf::perform_task()
           p = &particle->particles[particle->nlocal-1];
           p->flag = PSURF + 1 + isurf;
           p->dtremain = dt * random->uniform();
+          p->dt_weight = 1;
 
           if (nfix_add_particle)
             modify->add_particle(particle->nlocal-1,temp_thermal,
@@ -638,6 +639,7 @@ void FixEmitSurf::perform_task()
         p = &particle->particles[particle->nlocal-1];
         p->flag = PSURF + 1 + isurf;
         p->dtremain = dt * random->uniform();
+        p->dt_weight = 1;
 
         if (nfix_add_particle)
           modify->add_particle(particle->nlocal-1,temp_thermal,
@@ -709,7 +711,7 @@ void FixEmitSurf::subsonic_inflow()
       vscale = sqrt(2.0 * boltz * temp_thermal / mass);
       ntargetsp = mol_inflow(indot,vscale,fraction[isp]);
       ntargetsp *= nrho*area*dt / fnum;
-      ntargetsp /= cinfo[icell].weight;
+      ntargetsp /= cinfo[icell].weight / grid->cells[icell].dt_weight;
       tasks[i].ntarget += ntargetsp;
       if (perspecies) tasks[i].ntargetsp[isp] = ntargetsp;
     }

@@ -247,7 +247,7 @@ post_process_grid(int index, int nsample,
       vec[k] = mvsq - (mvx*mvx + mvy*mvy + mvz*mvz)/mass;
       vec[k] *= prefactor;
       if (tflag) vec[k] /= ncount;
-      else vec[k] *= cinfo[icell].weight / cinfo[icell].volume / nsample;
+      else vec[k] *= cinfo[icell].weight / grid->cells[icell].dt_weight / cinfo[icell].volume / nsample;
     }
     k += nstride;
   }

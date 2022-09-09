@@ -151,6 +151,7 @@ class Update : protected Pointers {
   typedef void (Update::*FnPtr)();
   FnPtr moveptr;             // ptr to move method
   template < int, int > void move();
+  template < int, int > void move_weighted();
 
   int perturbflag;
   typedef void (Update::*FnPtr2)(double, double *, double *);

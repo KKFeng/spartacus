@@ -366,7 +366,7 @@ void ComputeEFluxGrid::post_process_grid(int index, int nsample,
 	2.0*t[mv]*t[mv1]*t[mv1]/summass/summass;
       h2 = t[mvv2v2] - 2.0*t[mvv2]*t[mv2]/summass - t[mv]*t[mv2v2]/summass +
 	2.0*t[mv]*t[mv2]*t[mv2]/summass/summass;
-      wt = 0.5 * fnum * cinfo[icell].weight / cinfo[icell].volume;
+      wt = 0.5 * fnum * cinfo[icell].weight / grid->cells[icell].dt_weight / cinfo[icell].volume;
       vec[k] = wt/nsample * (h + h1 + h2);
     }
     k += nstride;
