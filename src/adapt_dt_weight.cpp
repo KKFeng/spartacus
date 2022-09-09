@@ -294,8 +294,8 @@ void AdaptDtWeight::set_weight_nearsurf() {
         double x[3];
         for (int i = 0; i < 3; ++i) {
             x[i] = (cells[icell].lo[i] + cells[icell].hi[i])/2;
-            add_region(x, surf_dist);
         }
+        add_region(x, surf_dist);
     }
 
     gather_allregion();
