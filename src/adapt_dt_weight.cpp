@@ -290,7 +290,7 @@ void AdaptDtWeight::set_weight_nearsurf() {
             }
         }
         if (j == nsurf) continue;
-        double* lo, * hi;
+        double lo[3], hi[3];
         for (int i = 0; i < 3; ++i) {
             lo[i] = cells[icell].lo[i] - surf_dist;
             hi[i] = cells[icell].hi[i] + surf_dist;
@@ -324,9 +324,9 @@ void AdaptDtWeight::set_weight_nearsurf() {
             if (in_region(regionlist[i], x)) break;
         }
         if (i == nregion) continue;
-        if (mod == DT_MAX) cells[icell].dt_weight = MAX(same_dt, cells[icell].dt_weight);
-        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(same_dt, cells[icell].dt_weight);
-        else cells[icell].dt_weight = same_dt;
+        if (mod == DT_MAX) cells[icell].dt_weight = MAX(surf_ndt, cells[icell].dt_weight);
+        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(surf_ndt, cells[icell].dt_weight);
+        else cells[icell].dt_weight = surf_ndt;
     }
 }
 
@@ -449,6 +449,7 @@ void AdaptDtWeight::gather_allregion() {
     }
     MPI_Allgatherv(myregionlist, nsend, MPI_CHAR, regionlist, recvcounts, displs, MPI_CHAR, world);
 
+    delete[] myregionlist;
     memory->destroy(recvcounts);
     memory->destroy(displs);
 }
