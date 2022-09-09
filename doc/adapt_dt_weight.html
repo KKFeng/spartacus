@@ -1,0 +1,85 @@
+<HTML>
+<CENTER><A HREF = "https://github.com/KKFeng/spartacus">SPARTACUS GitHub repo</A> - <A HREF = "http://sparta.sandia.gov">SPARTA WWW Site</A> - <A HREF = "Manual.html">SPARTA Documentation</A> - <A HREF = "Section_commands.html#comm">SPARTA Commands</A> 
+</CENTER>
+
+<HR>
+
+<H3>adapt_dt_weight command 
+</H3>
+<P><B>Syntax:</B>
+</P>
+<PRE>adapt_dt_weight group-ID style args ... keyword args ... 
+</PRE>
+<LI>group-ID = group ID for which grid cell adaptation will be attempted 
+
+<LI>style = <I>surf</I> or <I>near_surf</I> or <I>same</I> or <I>value</I> 
+
+<PRE>  <I>surf</I> args = surfID n_dt
+    surfID = group ID for which surface elements to consider
+    n_dt = number of sub-timestep that will be perform in chosen child cells.
+  <I>near_surf</I> args = surfID dist n_dt
+    surfID = group ID for which surface elements to consider
+    dist = distance between center of child cells to surf element.
+    n_dt = number of sub-timestep that will be perform in chosen child cells.
+  <I>same</I> arg = n_dt
+    n_dt = number of sub-timestep that will be perform in chosen child cells.
+  <I>value</I> args = c_ID/c_ID[N]/f_ID/f_ID[N] thresh max_dt
+    c_ID = ID of a compute that calculates a per grid vector, use values from vector
+    c_ID[N] = ID of a compute that calculates a per grid array, use values from Nth column of array
+    f_ID = ID of a fix that calculates a per grid vector, use vector
+    f_ID[N] = ID of a fix that calculates a per grid array, use Nth column of array
+    thresh = threshold in value for setting dt_weight, i.e., dt_weight = [value/thresh]
+    max_dt = max dt_weight, dt_weigth = min(max_dt, [value/thresh])
+</PRE>
+<LI>zero or more keyword/args pairs may be appended 
+
+<LI>keyword = <I>mode</I>
+
+<PRE>  <I>mode</I> arg = max/min/none
+    max/min/none = whether and how to consider existing dt_weight in this cell when setting new dt_weight   
+</PRE>
+
+</UL>
+<P><B>Examples:</B>
+</P>
+<PRE>adapt_dt_weight all surf 10
+adapt_dt_weight all near_surf front_surfgroup 0.1 10 
+adapt_dt_weight dense_area same 5 mode max
+adapt_dt_weight all value c_1 2.0e5 50 mode none
+</PRE>
+<P><B>Description:</B>
+</P>
+<P>This command perform a one-time adaptation of dt_weight of grid cells within a grid
+cell group, This command can be invoked as many times as desired, before or between simulation
+runs. 
+</P>
+<P> The default <I>dt_weight</I> of each child cell is 1, which means every child cells will do exactly
+the same motion and collision/relaxion procedure refer to the same <I>timestep</I>. If <I>adapt_dt_weight</I> is 
+invoked, some child cells will have different <I>dt_weight</I>, and these cells will refer to smaller <I>sub-timestep</I> when the particles in it do motion or collision/relaxion procedure, i.e., <I>sub-timestep</I> = <I>timestep</I> / <I>dt_weight</I>.
+</P>
+<HR>
+<P>The <I>surf</I> style adapts only if a grid cell contains one or more
+surface elements in the specified <I>surfID</I> group. 
+</P>
+<P>The <I>near_surf</I> style adapts if a grid cell is close to one or more
+surface elements in the specified <I>surfID</I> group. The distance between them is within <I>dist</I>.
+</P>
+<P>The <I>same</I> style adapts all grid cells in <I>group-ID</I> group. 
+</P>
+<P>The <I>value</I> style adapts the <I>dt_weight</I> of a grid cell to <I>min(max_dt, [value/thresh])</I>, where
+<I>value =  c_ID/c_ID[N]/f_ID/f_ID[N]</I>.
+</P>
+<HR>
+<P>Various optional keywords can also be specified.
+</P>
+<P>The <I>mode</I> keyword is set to consider existing <I>dt_weight</I> in a grid cell. When a new <I>dt_weight</I>
+is given, and <I>mode = max/min</I>, then the <I>dt_weight</I> of this grid cell will be set as <I>max(new,old)</I>
+or <I>min(new,old)</I>, otherwise it will be set as the <I>new</I> one. This keyword will be useful if you are going to invoke adapt_dt_weight multi times.
+</P>
+<P><B>Default:</B>
+</P>
+<P>The keyword <I>mode</I> defaults are <I>none</I>.
+</P>
+
+
+</HTML>
