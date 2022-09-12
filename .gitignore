@@ -44,3 +44,6 @@ Thumbs.db
 /.vs
 /cmake/.vs
 /cmake/out/build
+/src/out/
+/examples/out/
+/lib/kokkos/out/
