@@ -119,7 +119,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
     // Currently only consider global gridcut = -1.0, thus I have all child cell information
     // of the whole sim box.
 
-    if (grid->cutoff >= 0.0) error->one(FLERR, "Macro Comm: cutoff >=0.0");
+    //if (grid->cutoff >= 0.0) error->one(FLERR, "Macro Comm: cutoff >=0.0");
     if (!grid->exist_ghost) error->one(FLERR, "Macro Comm: Ghost cell not exist");
 
     // bb lo/hi = bounding box of my owned cells
@@ -524,7 +524,7 @@ const CommMacro* SPARTA_NS::GridCommMacro::interpolation_2d()
 
 const CommMacro* SPARTA_NS::GridCommMacro::interpolation_axisym()
 {
-    return &grid->cells[ipart->icell].macro;
+    return interpolation_2d();
 }
 
 /* ----------------------------------------------------------------------
