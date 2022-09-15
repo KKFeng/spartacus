@@ -83,6 +83,7 @@ void AdaptDtWeight::command(int narg, char **arg)
   MPI_Barrier(world);
   double time1 = MPI_Wtime();
 
+  sparta->init();
   grid->remove_ghosts();
 
   if (style == SURF) set_weight_surf();
