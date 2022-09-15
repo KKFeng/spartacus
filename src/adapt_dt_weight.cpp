@@ -33,7 +33,7 @@ using namespace SPARTA_NS;
 
 
 enum{DT_MAX, DT_MIN, DT_NONE};
-enum{SURF,NEAR_SURF,VALUE,COMPUTE,FIX,SAME};
+enum{SAME,SURF,NEAR_SURF,VALUE,VALUE_HEATFLUX,COMPUTE,FIX};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 
 #define DELTA_RL 64 // how to grow region list
@@ -89,6 +89,7 @@ void AdaptDtWeight::command(int narg, char **arg)
   if (style == SURF) set_weight_surf();
   else if (style == NEAR_SURF) set_weight_nearsurf();
   else if (style == VALUE) set_weight_value();
+  else if (style == VALUE_HEATFLUX) set_weight_value_heatflux();
   else if (style == SAME) set_weight_same();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
   
@@ -173,6 +174,36 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       max_dt = input->inumeric(FLERR,arg[iarg+3]);
       iarg += 4;
 
+  } else if (strcmp(arg[iarg], "value_heatflux") == 0) {
+      if (iarg + 6 > narg) error->all(FLERR, "Illegal adapt command");
+      style = VALUE_HEATFLUX;
+      coef = input->numeric(FLERR, arg[iarg + 1]);
+      for (int i = 0; i < 3; ++i) {
+          int tmp_iarg = iarg + 2 + i;
+          if (strncmp(arg[tmp_iarg], "c_", 2) == 0) valuewhich_arr[i] = COMPUTE;
+          else if (strncmp(arg[tmp_iarg], "f_", 2) == 0) valuewhich_arr[i] = FIX;
+          else error->all(FLERR, "Illegal adapt command");
+
+          int n = strlen(arg[tmp_iarg]);
+          char* suffix = new char[n];
+          strcpy(suffix, &arg[tmp_iarg][2]);
+
+          char* ptr = strchr(suffix, '[');
+          if (ptr) {
+              if (suffix[strlen(suffix) - 1] != ']')
+                  error->all(FLERR, "Illegal adapt command");
+              valindex_arr[i] = atoi(ptr + 1);
+              *ptr = '\0';
+          }
+          else valindex_arr[i] = 0;
+          n = strlen(suffix) + 1;
+          valueID_arr[i] = new char[n];
+          strcpy(valueID_arr[i], suffix);
+          delete[] suffix;
+      }
+      max_dt = input->inumeric(FLERR, arg[iarg + 5]);
+      iarg += 6;
+
   } else if (strcmp(arg[iarg],"same") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal adapt command");
       style = SAME;
@@ -205,36 +236,69 @@ void AdaptDtWeight::check_args()
     //   (1) fix adapt Nevery is multiple of fix ave Nfreq
     //   (2) fix ave/grid is defined before fix adapt (checked in fix adapt)
 
-    if (style != VALUE) return;
+    if (style == VALUE) {
+        if (valuewhich == COMPUTE) {
+            icompute = modify->find_compute(valueID);
+            if (icompute < 0)
+                error->all(FLERR, "Compute ID for adapt does not exist");
+            if (modify->compute[icompute]->per_grid_flag == 0)
+                error->all(FLERR,
+                    "Adapt compute does not calculate per-grid values");
+            if (valindex == 0 && modify->compute[icompute]->size_per_grid_cols != 0)
+                error->all(FLERR, "Adapt compute does not calculate a per-grid vector");
+            if (valindex && modify->compute[icompute]->size_per_grid_cols == 0)
+                error->all(FLERR, "Adapt compute does not calculate a per-grid array");
+            if (valindex && valindex > modify->compute[icompute]->size_per_grid_cols)
+                error->all(FLERR, "Adapt compute array is accessed out-of-range");
 
-    if (valuewhich == COMPUTE) {
-        icompute = modify->find_compute(valueID);
-        if (icompute < 0)
-            error->all(FLERR, "Compute ID for adapt does not exist");
-        if (modify->compute[icompute]->per_grid_flag == 0)
-            error->all(FLERR,
-                "Adapt compute does not calculate per-grid values");
-        if (valindex == 0 && modify->compute[icompute]->size_per_grid_cols != 0)
-            error->all(FLERR, "Adapt compute does not calculate a per-grid vector");
-        if (valindex && modify->compute[icompute]->size_per_grid_cols == 0)
-            error->all(FLERR, "Adapt compute does not calculate a per-grid array");
-        if (valindex && valindex > modify->compute[icompute]->size_per_grid_cols)
-            error->all(FLERR, "Adapt compute array is accessed out-of-range");
+        }
+        else if (valuewhich == FIX) {
+            ifix = modify->find_fix(valueID);
+            if (ifix < 0)
+                error->all(FLERR, "Fix ID for adapt does not exist");
+            if (modify->fix[ifix]->per_grid_flag == 0)
+                error->all(FLERR, "Adapt fix does not calculate per-grid values");
+            if (valindex == 0 && modify->fix[ifix]->size_per_grid_cols != 0)
+                error->all(FLERR, "Adapt fix does not calculate a per-grid vector");
+            if (valindex && modify->fix[ifix]->size_per_grid_cols == 0)
+                error->all(FLERR, "Adapt fix does not calculate a per-grid array");
+            if (valindex && valindex > modify->fix[ifix]->size_per_grid_cols)
+                error->all(FLERR, "Adapt fix array is accessed out-of-range");
+        }
+    } else if (style == VALUE_HEATFLUX) {
+        for (int i = 0; i < 3; ++i) {
+            if (valuewhich_arr[i] == COMPUTE) {
+                icompute_arr[i] = modify->find_compute(valueID_arr[i]);
+                if (icompute_arr[i] < 0)
+                    error->all(FLERR, "Compute ID for adapt does not exist");
+                if (modify->compute[icompute_arr[i]]->per_grid_flag == 0)
+                    error->all(FLERR,
+                        "Adapt compute does not calculate per-grid values");
+                if (valindex_arr[i] == 0 && modify->compute[icompute_arr[i]]->size_per_grid_cols != 0)
+                    error->all(FLERR, "Adapt compute does not calculate a per-grid vector");
+                if (valindex_arr[i] && modify->compute[icompute_arr[i]]->size_per_grid_cols == 0)
+                    error->all(FLERR, "Adapt compute does not calculate a per-grid array");
+                if (valindex_arr[i] && valindex_arr[i] > modify->compute[icompute_arr[i]]->size_per_grid_cols)
+                    error->all(FLERR, "Adapt compute array is accessed out-of-range");
 
+            }
+            else if (valuewhich_arr[i] == FIX) {
+                ifix_arr[i] = modify->find_fix(valueID_arr[i]);
+                if (ifix_arr[i] < 0)
+                    error->all(FLERR, "Fix ID for adapt does not exist");
+                if (modify->fix[ifix_arr[i]]->per_grid_flag == 0)
+                    error->all(FLERR, "Adapt fix does not calculate per-grid values");
+                if (valindex_arr[i] == 0 && modify->fix[ifix_arr[i]]->size_per_grid_cols != 0)
+                    error->all(FLERR, "Adapt fix does not calculate a per-grid vector");
+                if (valindex_arr[i] && modify->fix[ifix_arr[i]]->size_per_grid_cols == 0)
+                    error->all(FLERR, "Adapt fix does not calculate a per-grid array");
+                if (valindex_arr[i] && valindex_arr[i] > modify->fix[ifix_arr[i]]->size_per_grid_cols)
+                    error->all(FLERR, "Adapt fix array is accessed out-of-range");
+            }
+        }
     }
-    else if (valuewhich == FIX) {
-        ifix = modify->find_fix(valueID);
-        if (ifix < 0)
-            error->all(FLERR, "Fix ID for adapt does not exist");
-        if (modify->fix[ifix]->per_grid_flag == 0)
-            error->all(FLERR, "Adapt fix does not calculate per-grid values");
-        if (valindex == 0 && modify->fix[ifix]->size_per_grid_cols != 0)
-            error->all(FLERR, "Adapt fix does not calculate a per-grid vector");
-        if (valindex && modify->fix[ifix]->size_per_grid_cols == 0)
-            error->all(FLERR, "Adapt fix does not calculate a per-grid array");
-        if (valindex && valindex > modify->fix[ifix]->size_per_grid_cols)
-            error->all(FLERR, "Adapt fix array is accessed out-of-range");
-    }
+
+
 }
 
 
@@ -375,9 +439,57 @@ void AdaptDtWeight::set_weight_value() {
             else if (valuewhich == FIX) value = value_fix(icell);
         }
         else continue;
-        cells[icell].dt_weight = (int)MIN(max_dt,MAX(1,value/thresh));
+        int dt_weight = (int)MIN(max_dt,MAX(1,value/thresh));
+        if (mod == DT_MAX) cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
+        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(dt_weight, cells[icell].dt_weight);
+        else cells[icell].dt_weight = dt_weight;
     }
 }
+
+void AdaptDtWeight::set_weight_value_heatflux() {
+    int icell, nsplit, jcell;
+    double value_arr[3];
+    int* csubs;
+
+    // invoke compute each time refinement is done
+    // grid could have changed from previous refinement or coarsening
+    for (int i = 0; i < 3; ++i) {
+        if (valuewhich_arr[i] == COMPUTE) {
+            compute_arr[i] = modify->compute[icompute_arr[i]];
+            compute_arr[i]->compute_per_grid();
+            if (compute_arr[i]->post_process_grid_flag)
+                compute_arr[i]->post_process_grid(valindex_arr[i], 1, NULL, NULL, NULL, 1);
+        }
+        else if (valuewhich_arr[i] == FIX) fix_arr[i] = modify->fix[ifix_arr[i]];
+    }
+
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::SplitInfo* sinfo = grid->sinfo;
+    int nglocal = grid->nlocal;
+    for (int icell = 0; icell < nglocal; icell++) {
+        if (!(cinfo[icell].mask & groupbit)) continue;
+        if (cinfo[icell].type == INSIDE) continue;
+
+        if (cells[icell].nsplit <= 1) {
+            // unsplit cells or sub cells
+            for (int i = 0; i < 3; ++i) {
+                if (valuewhich_arr[i] == COMPUTE) value_arr[i] = value_compute(icell,i);
+                else if (valuewhich_arr[i] == FIX) value_arr[i] = value_fix(icell, i);
+            }
+
+        }
+        else continue;
+        // for each arrary, 0, 1, 2=heat flux, temperature, mass
+        double value = coef / abs(value_arr[0]) * sqrt(value_arr[1] * value_arr[2] / (2 * update->boltz));
+        value = update->dt / value;
+        int dt_weight = (int)MIN(max_dt, MAX(1, value));
+        if (mod == DT_MAX) cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
+        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(dt_weight, cells[icell].dt_weight);
+        else cells[icell].dt_weight = dt_weight;
+    }
+}
+
 
 void AdaptDtWeight::set_weight_same() {
     Grid::ChildCell* cells = grid->cells;
@@ -397,14 +509,18 @@ void AdaptDtWeight::set_weight_same() {
    extract a value for icell,valindex from a compute
 ------------------------------------------------------------------------- */
 
-double AdaptDtWeight::value_compute(int icell)
+double AdaptDtWeight::value_compute(int icell, int ico)
 {
     double value;
-
-    if (valindex == 0 || compute->post_process_grid_flag)
-        value = compute->vector_grid[icell];
-    else value = compute->array_grid[icell][valindex - 1];
-
+    if (ico == -1) {
+        if (valindex == 0 || compute->post_process_grid_flag)
+            value = compute->vector_grid[icell];
+        else value = compute->array_grid[icell][valindex - 1];
+    } else {
+        if (valindex_arr[ico] == 0 || compute_arr[ico]->post_process_grid_flag)
+            value = compute_arr[ico]->vector_grid[icell];
+        else value = compute_arr[ico]->array_grid[icell][valindex_arr[ico] - 1];
+    }
     return value;
 }
 
@@ -412,13 +528,17 @@ double AdaptDtWeight::value_compute(int icell)
    extract a value for icell,valindex from a fix
 ------------------------------------------------------------------------- */
 
-double AdaptDtWeight::value_fix(int icell)
+double AdaptDtWeight::value_fix(int icell, int ifi)
 {
     double value;
-
-    if (valindex == 0) value = fix->vector_grid[icell];
-    else value = fix->array_grid[icell][valindex - 1];
-
+    if (ifi == -1) {
+        if (valindex == 0) value = fix->vector_grid[icell];
+        else value = fix->array_grid[icell][valindex - 1];
+    }
+    else {
+        if (valindex_arr[ifi] == 0) value = fix_arr[ifi]->vector_grid[icell];
+        else value = fix_arr[ifi]->array_grid[icell][valindex_arr[ifi] - 1];
+    }
     return value;
 }
 

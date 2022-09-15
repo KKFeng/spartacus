@@ -46,7 +46,6 @@ class AdaptDtWeight : protected Pointers {
   double surf_dist; // for style = near_surf. distance to cell center
   struct MyRegion
   {
-	  //double lo[3], hi[3];
 	  double x[3], radius;
   };
 
@@ -59,7 +58,14 @@ class AdaptDtWeight : protected Pointers {
   class Compute* compute;
   class Fix* fix;
   double thresh;
-  int max_dt;
+  int max_dt; //also used in style = value_heatflux
+
+  // style = value_heatflux, for each arrary, 0, 1, 2=heat flux, temperature, mass
+  int valuewhich_arr[3], valindex_arr[3], icompute_arr[3], ifix_arr[3];
+  double coef;
+  char* computeID_arr[3], * valueID_arr[3];
+  class Compute* compute_arr[3];
+  class Fix* fix_arr[3];
 
   //style = same
   int same_dt;
@@ -69,9 +75,10 @@ class AdaptDtWeight : protected Pointers {
   void set_weight_surf();
   void set_weight_nearsurf();
   void set_weight_value();
+  void set_weight_value_heatflux();
   void set_weight_same();
-  double value_compute(int icell);
-  double value_fix(int icell);
+  double value_compute(int, int ico = -1);
+  double value_fix(int, int ifi = -1);
 
   void add_region(double*, double);
   bool in_region(MyRegion&, double*);

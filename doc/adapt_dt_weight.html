@@ -30,6 +30,11 @@
     f_ID[N] = ID of a fix that calculates a per grid array, use Nth column of array
     thresh = threshold in value for setting dt_weight, i.e., dt_weight = [value/thresh]
     max_dt = max dt_weight, dt_weigth = min(max_dt, [value/thresh])
+  <I>value_heatflux</I> args = coef c/f_heatflux c/f_temp c/f_mass max_dt
+    c/f_heatflux = ID of a compute(or fix) that calculates heat flux of every cell
+    c/f_temp = ID of a compute(or fix) that calculates temperature of every cell
+    c/f_mass = ID of a compute(or fix) that calculates mean mass of particles of every cell
+    max_dt = max dt_weight, dt_weigth = min(max_dt, [value/thresh])
 </PRE>
 <LI>zero or more keyword/args pairs may be appended 
 
@@ -78,7 +83,7 @@ or <I>min(new,old)</I>, otherwise it will be set as the <I>new</I> one. This key
 </P>
 <P><B>Default:</B>
 </P>
-<P>The keyword <I>mode</I> defaults are <I>none</I>.
+<P>The keyword <I>mode</I> defaults = <I>none</I>.
 </P>
 
 
