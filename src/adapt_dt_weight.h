@@ -60,12 +60,12 @@ class AdaptDtWeight : protected Pointers {
   double thresh;
   int max_dt; //also used in style = value_heatflux
 
-  // style = value_heatflux, for each arrary, 0, 1, 2=heat flux, temperature, mass
-  int valuewhich_arr[3], valindex_arr[3], icompute_arr[3], ifix_arr[3];
+  // style = value_heatflux, for each arrary, 0, 1, 2~4=temperature, mass, heat flux_x~z
+  int valuewhich_arr[5], valindex_arr[5], icompute_arr[5], ifix_arr[5];
   double coef;
-  char* computeID_arr[3], * valueID_arr[3];
-  class Compute* compute_arr[3];
-  class Fix* fix_arr[3];
+  char* computeID_arr[5], * valueID_arr[5];
+  class Compute* compute_arr[5];
+  class Fix* fix_arr[5];
 
   //style = same
   int same_dt;

@@ -175,11 +175,12 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       iarg += 4;
 
   } else if (strcmp(arg[iarg], "value_heatflux") == 0) {
-      if (iarg + 6 > narg) error->all(FLERR, "Illegal adapt command");
+      if (iarg + 8 > narg) error->all(FLERR, "Illegal adapt command");
       style = VALUE_HEATFLUX;
       coef = input->numeric(FLERR, arg[iarg + 1]);
-      for (int i = 0; i < 3; ++i) {
-          int tmp_iarg = iarg + 2 + i;
+      max_dt = input->inumeric(FLERR, arg[iarg + 2]);
+      for (int i = 0; i < 5; ++i) {
+          int tmp_iarg = iarg + 3 + i;
           if (strncmp(arg[tmp_iarg], "c_", 2) == 0) valuewhich_arr[i] = COMPUTE;
           else if (strncmp(arg[tmp_iarg], "f_", 2) == 0) valuewhich_arr[i] = FIX;
           else error->all(FLERR, "Illegal adapt command");
@@ -201,8 +202,7 @@ void AdaptDtWeight::process_args(int narg, char **arg)
           strcpy(valueID_arr[i], suffix);
           delete[] suffix;
       }
-      max_dt = input->inumeric(FLERR, arg[iarg + 5]);
-      iarg += 6;
+      iarg += 8;
 
   } else if (strcmp(arg[iarg],"same") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal adapt command");
@@ -266,7 +266,7 @@ void AdaptDtWeight::check_args()
                 error->all(FLERR, "Adapt fix array is accessed out-of-range");
         }
     } else if (style == VALUE_HEATFLUX) {
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < 5; ++i) {
             if (valuewhich_arr[i] == COMPUTE) {
                 icompute_arr[i] = modify->find_compute(valueID_arr[i]);
                 if (icompute_arr[i] < 0)
@@ -448,12 +448,10 @@ void AdaptDtWeight::set_weight_value() {
 
 void AdaptDtWeight::set_weight_value_heatflux() {
     int icell, nsplit, jcell;
-    double value_arr[3];
+    double value_arr[5];
     int* csubs;
 
-    // invoke compute each time refinement is done
-    // grid could have changed from previous refinement or coarsening
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 5; ++i) {
         if (valuewhich_arr[i] == COMPUTE) {
             compute_arr[i] = modify->compute[icompute_arr[i]];
             compute_arr[i]->compute_per_grid();
@@ -473,16 +471,25 @@ void AdaptDtWeight::set_weight_value_heatflux() {
 
         if (cells[icell].nsplit <= 1) {
             // unsplit cells or sub cells
-            for (int i = 0; i < 3; ++i) {
+            for (int i = 0; i < 5; ++i) {
                 if (valuewhich_arr[i] == COMPUTE) value_arr[i] = value_compute(icell,i);
                 else if (valuewhich_arr[i] == FIX) value_arr[i] = value_fix(icell, i);
             }
 
         }
         else continue;
-        // for each arrary, 0, 1, 2=heat flux, temperature, mass
-        double value = coef / abs(value_arr[0]) * sqrt(value_arr[1] * value_arr[2] / (2 * update->boltz));
+        // for each arrary,0, 1, 2~4=temperature, mass, heat flux_x~z
+        double heatflux = value_arr[2] * value_arr[2] + value_arr[3] * value_arr[3];
+        if (domain->dimension == 3) {
+            heatflux += value_arr[4] * value_arr[4];
+        }
+        heatflux = sqrt(heatflux);
+        double value = coef / heatflux * sqrt(value_arr[0] * value_arr[1] / (2 * update->boltz));
         value = update->dt / value;
+        if (isnan(value)) {
+            error->warning(FLERR, "dt_weight is not a number, reset to 1");
+            value = 1;
+        }
         int dt_weight = (int)MIN(max_dt, MAX(1, value));
         if (mod == DT_MAX) cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
         else if (mod == DT_MIN) cells[icell].dt_weight = MIN(dt_weight, cells[icell].dt_weight);
