@@ -33,11 +33,12 @@ using namespace SPARTA_NS;
 
 
 enum{DT_MAX, DT_MIN, DT_NONE};
-enum{SAME,SURF,NEAR_SURF,VALUE,VALUE_HEATFLUX,COMPUTE,FIX};
+enum{SAME,SURF,NEAR_SURF,VALUE,VALUE_HEATFLUX,USP_HEATFLUX,COMPUTE,FIX};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 
 #define DELTA_RL 64 // how to grow region list
 #define BIG 1.0e20
+#define NVALUEMAX 5
 
 /* ---------------------------------------------------------------------- */
 
@@ -89,7 +90,7 @@ void AdaptDtWeight::command(int narg, char **arg)
   if (style == SURF) set_weight_surf();
   else if (style == NEAR_SURF) set_weight_nearsurf();
   else if (style == VALUE) set_weight_value();
-  else if (style == VALUE_HEATFLUX) set_weight_value_heatflux();
+  else if (style == VALUE_HEATFLUX || style == USP_HEATFLUX) set_weight_value_heatflux();
   else if (style == SAME) set_weight_same();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
   
@@ -174,12 +175,14 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       max_dt = input->inumeric(FLERR,arg[iarg+3]);
       iarg += 4;
 
-  } else if (strcmp(arg[iarg], "value_heatflux") == 0) {
+  } else if((strcmp(arg[iarg], "value_heatflux") == 0) 
+      || (strcmp(arg[iarg], "usp_heatflux") == 0)) {
       if (iarg + 8 > narg) error->all(FLERR, "Illegal adapt command");
-      style = VALUE_HEATFLUX;
+      if (strcmp(arg[iarg], "value_heatflux") == 0) style = VALUE_HEATFLUX;
+      else if (strcmp(arg[iarg], "usp_heatflux") == 0) style = USP_HEATFLUX;
       coef = input->numeric(FLERR, arg[iarg + 1]);
       max_dt = input->inumeric(FLERR, arg[iarg + 2]);
-      for (int i = 0; i < 5; ++i) {
+      for (int i = 0; i < NVALUEMAX; ++i) {
           int tmp_iarg = iarg + 3 + i;
           if (strncmp(arg[tmp_iarg], "c_", 2) == 0) valuewhich_arr[i] = COMPUTE;
           else if (strncmp(arg[tmp_iarg], "f_", 2) == 0) valuewhich_arr[i] = FIX;
@@ -265,8 +268,8 @@ void AdaptDtWeight::check_args()
             if (valindex && valindex > modify->fix[ifix]->size_per_grid_cols)
                 error->all(FLERR, "Adapt fix array is accessed out-of-range");
         }
-    } else if (style == VALUE_HEATFLUX) {
-        for (int i = 0; i < 5; ++i) {
+    } else if ((style == VALUE_HEATFLUX || style == USP_HEATFLUX)) {
+        for (int i = 0; i < NVALUEMAX; ++i) {
             if (valuewhich_arr[i] == COMPUTE) {
                 icompute_arr[i] = modify->find_compute(valueID_arr[i]);
                 if (icompute_arr[i] < 0)
@@ -448,10 +451,10 @@ void AdaptDtWeight::set_weight_value() {
 
 void AdaptDtWeight::set_weight_value_heatflux() {
     int icell, nsplit, jcell;
-    double value_arr[5];
+    double value_arr[NVALUEMAX];
     int* csubs;
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < NVALUEMAX; ++i) {
         if (valuewhich_arr[i] == COMPUTE) {
             compute_arr[i] = modify->compute[icompute_arr[i]];
             compute_arr[i]->compute_per_grid();
@@ -471,7 +474,7 @@ void AdaptDtWeight::set_weight_value_heatflux() {
 
         if (cells[icell].nsplit <= 1) {
             // unsplit cells or sub cells
-            for (int i = 0; i < 5; ++i) {
+            for (int i = 0; i < NVALUEMAX; ++i) {
                 if (valuewhich_arr[i] == COMPUTE) value_arr[i] = value_compute(icell,i);
                 else if (valuewhich_arr[i] == FIX) value_arr[i] = value_fix(icell, i);
             }
@@ -479,11 +482,23 @@ void AdaptDtWeight::set_weight_value_heatflux() {
         }
         else continue;
         // for each arrary,0, 1, 2~4=temperature, mass, heat flux_x~z
-        double heatflux = value_arr[2] * value_arr[2] + value_arr[3] * value_arr[3];
-        if (domain->dimension == 3) {
-            heatflux += value_arr[4] * value_arr[4];
+        double heatflux;
+        if (style == VALUE_HEATFLUX) {
+            heatflux = value_arr[2] * value_arr[2] + value_arr[3] * value_arr[3];
+            if (domain->dimension == 3) {
+                heatflux += value_arr[4] * value_arr[4];
+            }
+            heatflux = sqrt(heatflux);
         }
-        heatflux = sqrt(heatflux);
+        else {
+            double* qi = cinfo[icell].macro.qi;
+            heatflux = qi[0] * qi[0] + qi[1] * qi[1];
+            if (domain->dimension == 3) {
+                heatflux += qi[2] * qi[2];
+            }
+            heatflux = sqrt(heatflux);
+        }
+
         double value = coef / heatflux * sqrt(value_arr[0] * value_arr[1] / (2 * update->boltz));
         value = update->dt / value;
         if (isnan(value)) {

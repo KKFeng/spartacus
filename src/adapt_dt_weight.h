@@ -24,6 +24,8 @@ CommandStyle(adapt_dt_weight,AdaptDtWeight)
 #include "pointers.h"
 #include "hash3.h"
 
+#define NVALUEMAX 5
+
 namespace SPARTA_NS {
 
 class AdaptDtWeight : protected Pointers {
@@ -61,11 +63,12 @@ class AdaptDtWeight : protected Pointers {
   int max_dt; //also used in style = value_heatflux
 
   // style = value_heatflux, for each arrary, 0, 1, 2~4=temperature, mass, heat flux_x~z
-  int valuewhich_arr[5], valindex_arr[5], icompute_arr[5], ifix_arr[5];
+  int valuewhich_arr[NVALUEMAX], valindex_arr[NVALUEMAX], icompute_arr[NVALUEMAX], ifix_arr[NVALUEMAX];
+  int nvalue;
   double coef;
-  char* computeID_arr[5], * valueID_arr[5];
-  class Compute* compute_arr[5];
-  class Fix* fix_arr[5];
+  char* computeID_arr[NVALUEMAX], * valueID_arr[NVALUEMAX];
+  class Compute* compute_arr[NVALUEMAX];
+  class Fix* fix_arr[NVALUEMAX];
 
   //style = same
   int same_dt;
