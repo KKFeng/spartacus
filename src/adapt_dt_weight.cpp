@@ -499,7 +499,7 @@ void AdaptDtWeight::set_weight_value_heatflux() {
             heatflux = sqrt(heatflux);
         }
 
-        double value = coef / heatflux * sqrt(value_arr[0] * value_arr[1] / (2 * update->boltz));
+        double value = coef / heatflux * sqrt(value_arr[0] * value_arr[1] / (3 * update->boltz));
         value = update->dt / value;
         if (isnan(value)) {
             error->warning(FLERR, "dt_weight is not a number, reset to 1");
