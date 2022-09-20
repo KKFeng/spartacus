@@ -93,7 +93,48 @@ ComputePropertyGrid::ComputePropertyGrid(SPARTA *sparta, int narg, char **arg) :
     } else if (strcmp(arg[iarg],"dt_weight") == 0) {
       pack_choice[i] = &ComputePropertyGrid::pack_dtweight;
       index[i] = 12;
-    } else error->all(FLERR,"Invalid keyword in compute property/grid command");
+    } else if (strcmp(arg[iarg], "temp") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_temp;
+        index[i] = 13;
+    } else if (strcmp(arg[iarg], "u") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_u;
+        index[i] = 14;
+    } else if (strcmp(arg[iarg], "v") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_v;
+        index[i] = 15;
+    } else if (strcmp(arg[iarg], "w") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_w;
+        index[i] = 16;
+    } else if (strcmp(arg[iarg], "qx") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_qx;
+        index[i] = 17;
+    } else if (strcmp(arg[iarg], "qy") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_qy;
+        index[i] = 18;
+    } else if (strcmp(arg[iarg], "qz") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_qz;
+        index[i] = 19;
+    } else if (strcmp(arg[iarg], "txx") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_txx;
+        index[i] = 20;
+    } else if (strcmp(arg[iarg], "tyy") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_tyy;
+        index[i] = 21;
+    } else if (strcmp(arg[iarg], "tzz") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_tzz;
+        index[i] = 22;
+    } else if (strcmp(arg[iarg], "txy") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_txy;
+        index[i] = 23;
+    } else if (strcmp(arg[iarg], "txz") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_txz;
+        index[i] = 24;
+    } else if (strcmp(arg[iarg], "tyz") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_tyz;
+        index[i] = 25;
+    }
+
+    else error->all(FLERR,"Invalid keyword in compute property/grid command");
   }
 
   per_grid_flag = 1;
@@ -363,3 +404,186 @@ void ComputePropertyGrid::pack_dtweight(int n)
         n += nvalues;
     }
 }
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_temp(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cells[i].macro.Temp;
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_u(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cells[i].macro.v[0];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_v(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cells[i].macro.v[1];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_w(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cells[i].macro.v[2];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_qx(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.qi[0];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_qy(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.qi[1];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_qz(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.qi[2];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_txx(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.sigma_ij[0];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_tyy(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.sigma_ij[1];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_tzz(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.sigma_ij[2];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_txy(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.sigma_ij[3];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_txz(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.sigma_ij[4];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_tyz(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.sigma_ij[5];
+        else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+

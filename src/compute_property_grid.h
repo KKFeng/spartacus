@@ -55,6 +55,19 @@ class ComputePropertyGrid : public Compute {
   void pack_zc(int);
   void pack_vol(int);
   void pack_dtweight(int);
+  void pack_temp(int);
+  void pack_u(int);
+  void pack_v(int);
+  void pack_w(int);  
+  void pack_qx(int);
+  void pack_qy(int);
+  void pack_qz(int);  
+  void pack_txx(int);
+  void pack_tyy(int);
+  void pack_tzz(int);  
+  void pack_txy(int);
+  void pack_txz(int);
+  void pack_tyz(int);
 };
 
 }
