@@ -69,7 +69,8 @@ class AdaptDtWeight : protected Pointers {
   char* computeID_arr[NVALUEMAX], * valueID_arr[NVALUEMAX];
   class Compute* compute_arr[NVALUEMAX];
   class Fix* fix_arr[NVALUEMAX];
-
+  int* dt_chain, doround;
+  double round_frac;
   //style = same
   int same_dt;
 
@@ -80,6 +81,7 @@ class AdaptDtWeight : protected Pointers {
   void set_weight_value();
   void set_weight_value_heatflux();
   void set_weight_same();
+  void round_value();
   double value_compute(int, int ico = -1);
   double value_fix(int, int ifi = -1);
 

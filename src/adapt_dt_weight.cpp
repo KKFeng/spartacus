@@ -49,6 +49,8 @@ AdaptDtWeight::AdaptDtWeight(SPARTA *sparta) : Pointers(sparta)
   mod = DT_NONE;
   nregion = maxregion = 0;
   regionlist = NULL;
+  doround = 0;
+  dt_chain = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -223,7 +225,16 @@ void AdaptDtWeight::process_args(int narg, char **arg)
           else if (strcmp(arg[iarg + 1], "none") == 0) mod = DT_NONE;
           else error->all(FLERR, "Illegal adapt command");
           iarg += 2;
-      }      
+      } if (strcmp(arg[iarg], "round") == 0) {
+          if (iarg + 2 > narg) error->all(FLERR, "Illegal adapt command");
+          round_frac = input->numeric(FLERR, arg[iarg + 1]);
+          doround = 1;
+          if (!(round_frac > 1.0))error->all(FLERR, "Illegal adapt command");
+          if ((style != VALUE_HEATFLUX) && (style != USP_HEATFLUX))
+              error->all(FLERR, "Illegal adapt command");
+          round_value();
+          iarg += 2;
+      }
       else error->all(FLERR, "Illegal adapt command");
   }
 
@@ -505,7 +516,8 @@ void AdaptDtWeight::set_weight_value_heatflux() {
             error->warning(FLERR, "dt_weight is not a number, reset to 1");
             value = 1;
         }
-        int dt_weight = (int)MIN(max_dt, MAX(1, value));
+        int dt_weight = (int)MIN(max_dt, MAX(1, value + 0.5));
+        if (doround) dt_weight = dt_chain[dt_weight];
         if (mod == DT_MAX) cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
         else if (mod == DT_MIN) cells[icell].dt_weight = MIN(dt_weight, cells[icell].dt_weight);
         else cells[icell].dt_weight = dt_weight;
@@ -614,4 +626,23 @@ void AdaptDtWeight::gather_allregion() {
     delete[] myregionlist;
     memory->destroy(recvcounts);
     memory->destroy(displs);
+}
+
+
+void AdaptDtWeight::round_value() {
+    delete[] dt_chain;
+    dt_chain = new int[max_dt + 1]{};
+    double round_frac2 = sqrt(round_frac);
+    int max_dt2 = ceil(max_dt / round_frac2);
+    dt_chain[1] = 1; dt_chain[max_dt2] = max_dt;
+    int imin = MAX(round(1 * round_frac2), 2);
+    int i = MAX(round(1 * round_frac), 2);
+    while (imin < max_dt2) {
+        dt_chain[imin] = i;
+        imin = MAX(round(i * round_frac2), i + 1);
+        i = MAX(round(i * round_frac), i + 1);
+    }
+    for (i = 1; i <= max_dt; ++i) {
+        if (!dt_chain[i]) dt_chain[i] = dt_chain[i - 1];
+    }
 }
