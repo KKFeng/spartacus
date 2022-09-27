@@ -278,7 +278,7 @@ void GridCommMacro::acquire_macro_comm_list_near()
     memcpy(sendfirst, sf, sizeof(int)* nprocs);
 
     for (int icell = 0; icell < nlocal; icell++) {
-        if (cells[icell].nsplit <= 0) continue;
+        if (cells[icell].nsplit <= 0) continue; // NOTE: need further test, in most occasion no problem
         lo = cells[icell].lo;
         hi = cells[icell].hi;
         lastproc = -1;

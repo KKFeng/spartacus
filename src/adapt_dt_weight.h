@@ -62,7 +62,8 @@ class AdaptDtWeight : protected Pointers {
   double thresh;
   int max_dt; //also used in style = value_heatflux
 
-  // style = value_heatflux, for each arrary, 0, 1, 2~4=temperature, mass, heat flux_x~z
+  // style = value_heatflux, for each array, 0, 1, 2~4 = temperature, mass, heat flux_x~z
+  // style = value_grad, for each array, 0, 1, 2~4 = temperature, mass, q_1~3
   int valuewhich_arr[NVALUEMAX], valindex_arr[NVALUEMAX], icompute_arr[NVALUEMAX], ifix_arr[NVALUEMAX];
   int nvalue;
   double coef;
@@ -71,6 +72,9 @@ class AdaptDtWeight : protected Pointers {
   class Fix* fix_arr[NVALUEMAX];
   int* dt_chain, doround;
   double round_frac;
+  // extra buff for style = value_grad, each length = nghost + nlocal
+  double* q;
+  int* exist_q;
   //style = same
   int same_dt;
 
@@ -80,6 +84,7 @@ class AdaptDtWeight : protected Pointers {
   void set_weight_nearsurf();
   void set_weight_value();
   void set_weight_value_heatflux();
+  void set_weight_value_grad();
   void set_weight_same();
   void round_value();
   double value_compute(int, int ico = -1);
@@ -88,6 +93,8 @@ class AdaptDtWeight : protected Pointers {
   void add_region(double*, double);
   bool in_region(MyRegion&, double*);
   void gather_allregion();
+  void run_comm();
+  double cal_grad(int icell);
 
 };
 

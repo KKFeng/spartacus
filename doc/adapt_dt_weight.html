@@ -35,7 +35,13 @@
     max_dt = max dt_weight, dt_weigth = min(max_dt, dt_weigth)
     c/f_heatflux_.. = ID of a compute(or fix) that calculates heat flux of every cell
     c/f_temp = ID of a compute(or fix) that calculates temperature of every cell
-    c/f_mass = ID of a compute(or fix) that calculates mean mass of particles of every cell    
+    c/f_mass = ID of a compute(or fix) that calculates mean mass of particles of every cell  
+  <I>value_grad</I> args = coef max_dt c/f_temp c/f_mass c/f_q1  c/f_q2  c/f_q3  
+    coef = coefficient in calculation of timestep
+    max_dt = max dt_weight, dt_weigth = min(max_dt, dt_weigth)
+    c/f_q.. = ID of a compute(or fix) that calculates a macro quantities.
+    c/f_temp = ID of a compute(or fix) that calculates temperature of every cell
+    c/f_mass = ID of a compute(or fix) that calculates mean mass of particles of every cell  	
 </PRE>
 <LI>zero or more keyword/args pairs may be appended 
 
