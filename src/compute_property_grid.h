@@ -68,6 +68,7 @@ class ComputePropertyGrid : public Compute {
   void pack_txy(int);
   void pack_txz(int);
   void pack_tyz(int);
+  void pack_zero(int);
 };
 
 }

@@ -132,8 +132,10 @@ ComputePropertyGrid::ComputePropertyGrid(SPARTA *sparta, int narg, char **arg) :
     } else if (strcmp(arg[iarg], "tyz") == 0) {
         pack_choice[i] = &ComputePropertyGrid::pack_tyz;
         index[i] = 25;
+    } else if (strcmp(arg[iarg], "zero") == 0) {
+        pack_choice[i] = &ComputePropertyGrid::pack_zero;
+        index[i] = 26;
     }
-
     else error->all(FLERR,"Invalid keyword in compute property/grid command");
   }
 
@@ -583,6 +585,19 @@ void ComputePropertyGrid::pack_tyz(int n)
     for (int i = 0; i < nglocal; i++) {
         if (cinfo[i].mask & groupbit) buf[n] = cinfo[i].macro.sigma_ij[5];
         else buf[n] = 0.0;
+        n += nvalues;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void ComputePropertyGrid::pack_zero(int n)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+
+    for (int i = 0; i < nglocal; i++) {
+        buf[n] = 0.0;
         n += nvalues;
     }
 }
