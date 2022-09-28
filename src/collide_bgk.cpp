@@ -90,6 +90,10 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     count_try_relaxation = count_done_relaxation = count_fail_relaxation = 0;
     count_do_childcell = count_ignore_childcell = count_warning_ignore_childcell = 0;
 
+    maxglocal = 0;
+    resetWmax_flag = NULL;
+    nplocalmax = 0;
+    relax_flag = NULL;
 }
 
 
@@ -130,6 +134,14 @@ void CollideBGK::collisions()
     else if (bgk_mod == BGK) computeMacro<BGK>();
     else if (bgk_mod == SBGK) computeMacro<SBGK>();
     else if (bgk_mod == ESBGK) computeMacro<ESBGK>();
+
+    if (nglocal > maxglocal) {
+        maxglocal = ceil(nglocal * 1.2);
+        memory->destroy(resetWmax_flag);
+        memory->create(resetWmax_flag, maxglocal, "collideBGK:resetWmax_flag");
+    }
+    for (int icell = 0; icell < nglocal; icell++) resetWmax_flag[icell] = 1;
+    reset_relaxflag();
 
     // loop over cells I own
     Grid::ChildCell* cells = grid->cells;
@@ -173,22 +185,31 @@ void CollideBGK::collisions()
                 std::swap(plist[i], plist[t]);
             }
         }
-        resetWmax_tmpflag = 1;
-        for (int i = 0;i < bgk_nattempt; ++i) {
-            Particle::OnePart* ipart = &particles[plist[i]];
-            const CommMacro* interMacro = grid->gridCommMacro->interpolation(ipart);
-            if ((!interMacro) || (!(interMacro->Temp > 0))) {
-                if (!interMacro)
-                    error->warning(FLERR, "CollideBGK:interpolation failed!(!interMacro)");
-                interMacro = &grid->cells[icell].macro;
-            }
-            if (bgk_mod == USP) perform_uspbgk(ipart, icell, interMacro);
-            else if (bgk_mod == BGK) perform_bgkbgk(ipart, icell, interMacro);
-            else if (bgk_mod == SBGK) perform_sbgk(ipart, icell, interMacro);
-            else if (bgk_mod == ESBGK) perform_esbgk(ipart, icell, interMacro);
-        }  
-        if (resetWmax > 0.0 && resetWmax_tmpflag && 
-            (bgk_mod == USP|| bgk_mod == SBGK))
+        for (int i = 0; i < bgk_nattempt; ++i) {
+            relax_flag[plist[i]] = 1;
+        }
+    }
+
+    // loop over all my part to improve cache hit ratio
+    for (int i = 0; i < particle->nlocal; ++i) {
+        if (!relax_flag[i]) continue;
+        Particle::OnePart* ipart = &particles[i];
+        int icell = ipart->icell;
+        const CommMacro* interMacro = grid->gridCommMacro->interpolation(ipart);
+        if ((!interMacro) || (!(interMacro->Temp > 0))) {
+            if (!interMacro)
+                error->warning(FLERR, "CollideBGK:interpolation failed!(!interMacro)");
+            interMacro = &grid->cells[icell].macro;
+        }
+        if (bgk_mod == USP) perform_uspbgk(ipart, icell, interMacro);
+        else if (bgk_mod == BGK) perform_bgkbgk(ipart, icell, interMacro);
+        else if (bgk_mod == SBGK) perform_sbgk(ipart, icell, interMacro);
+        else if (bgk_mod == ESBGK) perform_esbgk(ipart, icell, interMacro);
+    }
+
+    for (int icell = 0; icell < nglocal; icell++) {
+        if (resetWmax > 0.0 && resetWmax_flag[icell] &&
+            (bgk_mod == USP || bgk_mod == SBGK))
             cinfo[icell].macro.Wmax *= resetWmax;
     }
     conservV();
@@ -282,7 +303,7 @@ void CollideBGK::perform_uspbgk(Particle::OnePart* ip, int icell, const CommMacr
             cinfo[icell].macro.coef_B * qkck;
         if (W > cinfo[icell].macro.Wmax && W < 5) {
             cinfo[icell].macro.Wmax = W;
-            resetWmax_tmpflag = 0;
+            resetWmax_flag[icell] = 0;
             break;
         }
         if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
@@ -339,7 +360,7 @@ void CollideBGK::perform_sbgk(Particle::OnePart* ip, int icell, const CommMacro*
         double W = 1.0 + cinfo[icell].macro.coef_B * qkck;
         if (W > cinfo[icell].macro.Wmax) {
             cinfo[icell].macro.Wmax = W;
-            resetWmax_tmpflag = 0;
+            resetWmax_flag[icell] = 0;
             break;
         }
         if (random->uniform() < W / cinfo[icell].macro.Wmax) break;
@@ -633,6 +654,19 @@ int CollideBGK::wordparse(int maxwords, char* line, char** words)
 }
 
 /* ---------------------------------------------------------------------- */
+
+void CollideBGK::reset_relaxflag() {
+    int nplocal = particle->nlocal;
+    if (nplocal > nplocalmax) {
+        nplocalmax = ceil(nplocal * 1.2);
+        memory->destroy(relax_flag);
+        memory->create(relax_flag, nplocalmax, "collide:relax_flag");
+    }
+    memset(relax_flag, 0, nplocalmax * sizeof(bool));
+}
+
+/* ---------------------------------------------------------------------- */
+
 void CollideBGK::print_warning() {
     if (output->next_stats != update->ntimestep)return;
     bigint sum1, sum2, sum3, sum4;
@@ -657,6 +691,7 @@ void CollideBGK::print_warning() {
     }
     reset_count();
 }
+
 /* ---------------------------------------------------------------------- */
 
 CollideBGKModify::CollideBGKModify(SPARTA* sparta) : Pointers(sparta){}

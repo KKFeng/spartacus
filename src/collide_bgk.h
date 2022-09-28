@@ -87,17 +87,24 @@ class CollideBGK : public Collide {
   
   Params *params;             // BGK params for each species
   int nparams;                // # of per-species params read in
-  double resetWmax_tmpflag;    // tmp flag to decide whether resetWmax in current cell
+  int maxglocal;
+  int *resetWmax_flag;    // flag to decide whether resetWmax in current cell
   double resetWmax;           // coefficient to reduce Wmax, default = 0.9999,
                               // if resetWmax <= 0, don't do reset
   int bgk_mod;
   double Pr;                  // Prantl number
   double time_ave_coef;
+
+  bool* relax_flag;
+  int nplocalmax;
+
   template < int > void computeMacro();
   void read_param_file(char*);
   int wordparse(int, char*, char**);
   void reset_count();
   void print_warning();
+
+  void reset_relaxflag();
 
 };
 
