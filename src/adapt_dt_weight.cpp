@@ -245,7 +245,8 @@ void AdaptDtWeight::process_args(int narg, char **arg)
           round_frac = input->numeric(FLERR, arg[iarg + 1]);
           doround = 1;
           if (!(round_frac > 1.0))error->all(FLERR, "Illegal adapt command");
-          if ((style != VALUE_HEATFLUX) && (style != USP_HEATFLUX))
+          if ((style != VALUE_HEATFLUX) && (style != USP_HEATFLUX)
+              && (style != VALUE_GRAD))
               error->all(FLERR, "Illegal adapt command");
           round_value();
           iarg += 2;
@@ -564,7 +565,7 @@ void AdaptDtWeight::set_weight_value_grad() {
         }
         double grad = cal_grad(icell);
         double v_rms = sqrt(3 * update->boltz * value_arr[0] / value_arr[1]);
-        double value = update->dt * v_rms * grad / q[icell];
+        double value = coef * update->dt * v_rms * grad / q[icell];
         if (isnan(value)) {
             error->warning(FLERR, "dt_weight is not a number, reset to 1");
             value = 1;
@@ -768,7 +769,7 @@ double AdaptDtWeight::cal_grad(int icell) {
         int nflag = grid->neigh_decode(nmask, face);
         if (nflag == NCHILD) {
             ic = neigh[face];
-            if (cells[ic].nsplit > 1 || q[ic] == 0.0) continue;
+            if (ic < 0 || cells[ic].nsplit > 1 || q[ic] == 0.0) continue;
             grad[face] = abs((q[ic] - q[icell]) / dx);
             exist_grad[face] = 1;
         } else if (nflag == NPARENT){
@@ -783,7 +784,7 @@ double AdaptDtWeight::cal_grad(int icell) {
                     x[2] = pcell->lo[2] + random.uniform() * (pcell->hi[2] - pcell->lo[2]);
                 else x[2] = 0;
                 ic = grid->id_find_child(pcell->id, cells[icell].level, pcell->lo, pcell->hi, x);
-                if (cells[ic].nsplit > 1 || q[ic] == 0.0) continue;
+                if (ic < 0 || cells[ic].nsplit > 1 || q[ic] == 0.0) continue;
                 sample_q += q[ic]; ++ngrad;
             }
             if (ngrad) {
