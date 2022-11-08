@@ -45,7 +45,7 @@ using namespace MathExtra;
 using namespace MathConst;
 
 enum{NONE,REFINE,COARSEN};              // also in FixAdapt
-enum{PARTICLE,SURF,VALUE,COMPUTE,FIX,RANDOM};
+enum{PARTICLE,SURF,VALUE,COMPUTE,FIX,RANDOM,GRAD};
 enum{REGION_ALL,REGION_ONE,REGION_CENTER};
 enum{UNKNOWN,OUTSIDE,INSIDE,OVERLAP};   // several files
 enum{LESS,MORE};
@@ -279,6 +279,17 @@ void AdaptGrid::process_args(int narg, char **arg)
       cfrac = input->numeric(FLERR,arg[iarg+2]);
       if (rfrac < 0.0 || rfrac > 1.0 || cfrac < 0.0 || cfrac > 1.0)
         error->all(FLERR,"Illegal adapt command");
+      iarg += 3;
+
+  } else if (strcmp(arg[iarg],"grad") == 0) {
+      if (iarg+3 > narg) error->all(FLERR,"Illegal adapt command");
+      style = GRAD;
+      rcoef = input->numeric(FLERR,arg[iarg+1]);
+      ccoef = input->numeric(FLERR,arg[iarg+2]);
+      if (rcoef < 0.0 || ccoef < 0.0)
+        error->all(FLERR,"Illegal adapt command");
+      if (!grid->gradhashfilled)
+        error->all(FLERR,"adapt style = grad, without existing grad");
       iarg += 3;
 
   } else error->all(FLERR,"Illegal adapt command");
@@ -540,6 +551,7 @@ bigint AdaptGrid::refine()
   else if (style == SURF) refine_surf();
   else if (style == VALUE) refine_value();
   else if (style == RANDOM) refine_random();
+  else if (style == GRAD) refine_grad();
 
   bigint nme = perform_refine();
 
@@ -810,6 +822,53 @@ void AdaptGrid::refine_random()
   }
 
   rnum = n;
+}
+
+/* ----------------------------------------------------------------------
+   refine based on gradient
+------------------------------------------------------------------------- */
+
+void AdaptGrid::refine_grad()
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::SplitInfo* sinfo = grid->sinfo;
+    Grid::MyGradHash* grad_l = grid->grad_l;
+    Grid::MyGradHash* grad_dt = grid->grad_dt;
+
+    int warning_count = 0;
+
+    int n = 0;
+    for (int i = 0; i < rnum; i++) {
+        int icell = rlist[i];
+        cellint id = cells[icell].id;
+        double ref_l = BIG;
+        int level = cells[icell].level;
+        while (1) {
+            if (grad_l->find(id) != grad_l->end()) {
+                ref_l = rcoef * (*grad_l)[id];
+                break;
+            }
+            id = id & ((1L << grid->plevels[--level].nbits) - 1);
+            if (id <= 0 ) {
+                ++warning_count; break;
+            }
+        }
+        double* lo = cells[icell].lo;
+        double* hi = cells[icell].hi;
+        if ((hi[0] - lo[0] > ref_l) || (hi[1] - lo[1] > ref_l) 
+            || (domain->dimension == 3 && (hi[2] - lo[2] > ref_l))) {
+            rlist[n++] = icell;
+        }
+    }
+    rnum = n;
+    
+    if (warning_count) {
+        char str[128];
+        sprintf(str, "%d cell(s) can't find corresponding grad when refining", warning_count);
+        error->warning(FLERR, str);
+    }
+
 }
 
 /* ----------------------------------------------------------------------

@@ -21,7 +21,7 @@
 
 <LI>action2 = <I>coarsen</I> or <I>refine</I>, optional 
 
-<LI>style = <I>particle</I> or <I>surf</I> or <I>value</I> or <I>random</I> 
+<LI>style = <I>particle</I> or <I>surf</I> or <I>value</I> or <I>random</I> or <I><B>grad</B></I>
 
 <PRE>  <I>particle</I> args = rthresh cthresh
     rcount = threshold in particle count for refinment
@@ -40,6 +40,10 @@
   <I>random</I> args = rfrac cfrac
     rfrac = fraction of child cells to refine
     cfrac = fraction of parent cells to coarsen 
+  <B><I>grad</I> args = rcoef ccoef
+    rcoef = coefficient for pre-computed gradient data when refining
+    ccoef = coefficient for pre-computed gradient data when coarsening
+  </B>
 </PRE>
 <LI>zero or more keyword/args pairs may be appended 
 

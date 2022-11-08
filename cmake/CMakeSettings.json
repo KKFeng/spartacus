@@ -20,6 +20,27 @@
       ],
       "remoteCopyAdditionalIncludeDirectories": [],
       "buildCommandArgs": "-j12"
+    },
+    {
+      "name": "WSL-GCC-Release",
+      "generator": "Unix Makefiles",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeExecutable": "cmake",
+      "buildCommandArgs": "-j12",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "linux_x64" ],
+      "variables": [
+        {
+          "name": "SPARTA_MACHINE",
+          "value": "serial",
+          "type": "STRING"
+        }
+      ],
+      "wslPath": "${defaultWSLPath}",
+      "addressSanitizerRuntimeFlags": "detect_leaks=0",
+      "remoteCopyAdditionalIncludeDirectories": []
     }
   ]
 }

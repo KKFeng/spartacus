@@ -68,7 +68,7 @@ class AdaptGrid : protected Pointers {
   class Region *region;
   class Compute *compute;
   class Fix *fix;
-
+  double rcoef, ccoef; // coef in style = grad
   int *childlist;
   class RanPark *random;
   class Cut3d *cut3d;
@@ -147,6 +147,7 @@ class AdaptGrid : protected Pointers {
   void refine_surf();
   void refine_value();
   void refine_random();
+  void refine_grad();
   int perform_refine();
 
   void candidates_coarsen();

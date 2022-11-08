@@ -1,0 +1,71 @@
+<HTML>
+<CENTER><A HREF = "https://github.com/KKFeng/spartacus">SPARTACUS GitHub repo</A> - <A HREF = "http://sparta.sandia.gov">SPARTA WWW Site</A> - <A HREF = "Manual.html">SPARTA Documentation</A> - <A HREF = "Section_commands.html#comm">SPARTA Commands</A> 
+</CENTER>
+
+<HR>
+
+<H3>adapt_grad_compute command 
+</H3>
+<P><B>Syntax:</B>
+</P>
+<PRE>adapt_grad_compute group-ID style args ... keyword args ... 
+</PRE>
+<LI>group-ID = group ID for which gradient of quantities will be computed 
+
+<LI>style = <I>value</I> 
+
+<PRE>  <I>value</I> args = c/f_temp c/f_mass c/f_q1  c/f_q2  c/f_q3  
+    c/f_q.. = ID of a compute(or fix) that calculates a macro quantities.
+    c/f_temp = ID of a compute(or fix) that calculates temperature of every cell
+    c/f_mass = ID of a compute(or fix) that calculates mean mass of particles of every cell  	
+</PRE>
+<LI>zero or more keyword/args pairs may be appended 
+
+<LI>keyword = <I>mode</I>
+
+<PRE>  <I>mode</I> arg = max/min/none
+    max/min/none = whether and how to consider existing grad in this cell when setting new grad   
+</PRE>
+
+</UL>
+<P><B>Examples:</B>
+</P>
+<PRE>adapt_grad_compute all value f_temp f_mass f_q[1]  f_q[2]  f_q[3] mode max
+
+</PRE>
+<P><B>Description:</B>
+</P>
+<P>This command perform a one-time adaptation of dt_weight of grid cells within a grid
+cell group, This command can be invoked as many times as desired, before or between simulation
+runs. 
+</P>
+<P> The default <I>dt_weight</I> of each child cell is 1, which means every child cells will do exactly
+the same motion and collision/relaxion procedure refer to the same <I>timestep</I>. If <I>adapt_dt_weight</I> is 
+invoked, some child cells will have different <I>dt_weight</I>, and these cells will refer to smaller <I>sub-timestep</I> when the particles in it do motion or collision/relaxion procedure, i.e., <I>sub-timestep</I> = <I>timestep</I> / <I>dt_weight</I>.
+</P>
+<HR>
+<P>The <I>surf</I> style adapts only if a grid cell contains one or more
+surface elements in the specified <I>surfID</I> group. 
+</P>
+<P>The <I>near_surf</I> style adapts if a grid cell is close to one or more
+surface elements in the specified <I>surfID</I> group. The distance between them is within <I>dist</I>.
+</P>
+<P>The <I>same</I> style adapts all grid cells in <I>group-ID</I> group. 
+</P>
+<P>The <I>value</I> style adapts the <I>dt_weight</I> of a grid cell to <I>min(max_dt, [value/thresh])</I>, where
+<I>value =  c_ID/c_ID[N]/f_ID/f_ID[N]</I>.
+</P>
+<HR>
+<P>Various optional keywords can also be specified.
+</P>
+<P>The <I>mode</I> keyword is set to consider existing <I>dt_weight</I> in a grid cell. When a new <I>dt_weight</I>
+is given, and <I>mode = max/min</I>, then the <I>dt_weight</I> of this grid cell will be set as <I>max(new,old)</I>
+or <I>min(new,old)</I>, otherwise it will be set as the <I>new</I> one. This keyword will be useful if you are going to invoke adapt_dt_weight multi times.
+</P>
+<P><B>Default:</B>
+</P>
+<P>The keyword <I>mode</I> defaults = <I>none</I>.
+</P>
+
+
+</HTML>

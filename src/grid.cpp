@@ -138,6 +138,9 @@ Grid::Grid(SPARTA *sparta) : Pointers(sparta)
 
   gridCommMacro = new GridCommMacro(sparta);
   is_dt_weight = 0;
+  grad_l = new MyGradHash();
+  grad_dt = new MyGradHash();
+  gradhashfilled = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -163,6 +166,8 @@ Grid::~Grid()
   delete csubs;
   delete hash;
   delete gridCommMacro;
+  delete grad_l;
+  delete grad_dt;
 }
 
 /* ----------------------------------------------------------------------

@@ -79,6 +79,19 @@ class Grid : protected Pointers {
   int is_dt_weight;     // 1 if dt_weight of grid is not uniform
 
 
+#ifdef SPARTA_MAP
+  typedef std::map<cellint, double> MyGradHash;
+#elif SPARTA_UNORDERED_MAP
+  typedef std::unordered_map<cellint, double> MyGradHash;
+#else
+  typedef std::tr1::unordered_map<cellint, double> MyGradHash;
+#endif
+
+  MyGradHash* grad_l;               // characteristic length computed from macro variable gradient of cells I own
+  MyGradHash* grad_dt;              // characteristic time computed from macro variable gradient of cells I own 
+  int gradhashfilled;              // 1 if grad_** is filled with cell IDs & corresponding gradient
+
+
   // cell ID hash (owned + ghost, no sub-cells)
 
 #ifdef SPARTA_MAP
