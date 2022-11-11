@@ -91,6 +91,7 @@ class AdaptGrid : protected Pointers {
     int *proc;              // proc that owns each child
     int *index;             // local index of each child on owning proc
     double *value;          // style value for each child
+    double *value_t;        // extra value for style == grad
   };
 
   struct ActionList {
@@ -130,7 +131,7 @@ class AdaptGrid : protected Pointers {
   struct Rvous1 {
     cellint parentID;
     int plevel,proc,icell,ichild;     // ichild = 0 to Nxyz-1
-    double value;
+    double value,value_t;
   };
 
   // Rvous2 send info
@@ -154,10 +155,12 @@ class AdaptGrid : protected Pointers {
   double coarsen_particle_cell(int);
   double coarsen_surf_cell(int);
   double coarsen_value_cell(int);
+  double coarsen_grad_cell(int, double&);
   void coarsen_particle();
   void coarsen_surf();
   void coarsen_value();
   void coarsen_random();
+  void coarsen_grad();
   void particle_surf_comm();
   int perform_coarsen();
 

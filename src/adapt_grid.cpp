@@ -597,6 +597,7 @@ bigint AdaptGrid::coarsen()
   else if (style == SURF) coarsen_surf();
   else if (style == VALUE) coarsen_value();
   else if (style == RANDOM) coarsen_random();
+  else if (style == GRAD) coarsen_grad();
 
   particle_surf_comm();
   bigint nme = perform_coarsen();
@@ -861,14 +862,16 @@ void AdaptGrid::refine_grad()
             rlist[n++] = icell;
         }
     }
-    rnum = n;
-    
-    if (warning_count) {
+    int all_refine, all_warning;
+    MPI_Allreduce(&rnum, &all_refine, 1, MPI_INT, MPI_SUM, world);
+    MPI_Allreduce(&warning_count, &all_warning, 1, MPI_INT, MPI_SUM, world);
+    if (comm->me==0 && all_warning) {
         char str[128];
-        sprintf(str, "%d cell(s) can't find corresponding grad when refining", warning_count);
+        sprintf(str, "%d cells in total %d cells can't find corresponding grad when refining",
+            all_warning, all_refine);
         error->warning(FLERR, str);
     }
-
+    rnum = n;
 }
 
 /* ----------------------------------------------------------------------
@@ -1027,6 +1030,7 @@ void AdaptGrid::candidates_coarsen()
 	clist[m].proc = new int[nxyz];
 	clist[m].index = new int[nxyz];
 	clist[m].value = new double[nxyz];
+	clist[m].value_t = new double[nxyz];
       } else m = (*clhash)[parentID];
 
       n = clist[m].nexist;
@@ -1036,6 +1040,9 @@ void AdaptGrid::candidates_coarsen()
       else if (style == SURF) clist[m].value[n] = coarsen_surf_cell(icell);
       else if (style == VALUE) clist[m].value[n] = coarsen_value_cell(icell);
       else if (style == RANDOM) clist[m].value[n] = 0.0;
+      else if (style == GRAD) {
+          clist[m].value[n] = coarsen_grad_cell(icell, clist[m].value_t[n]);
+      }
       clist[m].nexist++;
 
     // this proc does not own all children of parentID
@@ -1052,6 +1059,9 @@ void AdaptGrid::candidates_coarsen()
       else if (style == SURF) inbuf[nsend].value = coarsen_surf_cell(icell);
       else if (style == VALUE) inbuf[nsend].value = coarsen_value_cell(icell);
       else if (style == RANDOM) inbuf[nsend].value = 0.0;
+      else if (style == GRAD) {
+          inbuf[nsend].value = coarsen_grad_cell(icell, inbuf[nsend].value_t);
+      }
       nsend++;
     }
   }
@@ -1092,6 +1102,7 @@ void AdaptGrid::candidates_coarsen()
       clist[cnum].proc = new int[nchild];
       clist[cnum].index = new int[nchild];
       clist[cnum].value = new double[nchild];
+      clist[cnum].value_t = new double[nchild];
       m = cnum++;
     } else m = (*clhash)[parentID];
 
@@ -1099,6 +1110,7 @@ void AdaptGrid::candidates_coarsen()
     clist[m].proc[n] = outbuf[i].proc;
     clist[m].index[n] = outbuf[i].icell;
     clist[m].value[n] = outbuf[i].value;
+    clist[m].value_t[n] = outbuf[i].value_t;
     clist[m].nexist++;
   }
 
@@ -1221,6 +1233,30 @@ double AdaptGrid::coarsen_value_cell(int icell)
   return value;
 }
 
+/* ----------------------------------------------------------------------*/
+
+double AdaptGrid::coarsen_grad_cell(int icell, double &ref_dt)
+{
+    Grid::ChildCell* cells = grid->cells;
+    Grid::MyGradHash* grad_l = grid->grad_l;
+    Grid::MyGradHash* grad_dt = grid->grad_dt;
+    cellint id = cells[icell].id;
+    double ref_l = BIG;
+    int level = cells[icell].level;
+    while (1) {
+        if (grad_l->find(id) != grad_l->end()) {
+            ref_l = (*grad_l)[id];
+            ref_dt = (*grad_dt)[id];
+            break;
+        }
+        id = id & ((1L << grid->plevels[--level].nbits) - 1);
+        if (id <= 0) {
+            /*++warning_count;*/ break;
+        }
+    }
+    return ref_l;
+}
+
 /* ----------------------------------------------------------------------
    coarsen clist cells based on particle count
 ------------------------------------------------------------------------- */
@@ -1324,6 +1360,45 @@ void AdaptGrid::coarsen_random()
     clist[i].flag = 1;
   }
 }
+
+/* ----------------------------------------------------------------------
+   coarsen based on gradient
+------------------------------------------------------------------------- */
+
+void AdaptGrid::coarsen_grad()
+{
+    Grid::MyGradHash* grad_l = grid->grad_l;
+    Grid::MyGradHash* grad_dt = grid->grad_dt;
+    int m, nchild;
+    for (int i = 0; i < cnum; i++) {
+        if (clist[i].flag == 0) continue;
+
+        double* values = clist[i].value;
+        double* values_t = clist[i].value_t;
+        nchild = clist[i].nchild;
+
+        double allvalues = BIG;
+        double allvalues_t = BIG;
+
+        for (m = 0; m < nchild; m++) {
+            allvalues = MIN(allvalues, values[m]);
+            allvalues_t = MIN(allvalues_t, values_t[m]);
+        }
+        double ref_l =  allvalues * ccoef;
+        double* boxlo = domain->boxlo;
+        double* boxhi = domain->boxhi;
+        double lo[3], hi[3];
+        grid->id_lohi(clist[i].parentID, clist[i].plevel, boxlo, boxhi, lo, hi);
+
+        if ((hi[0] - lo[0] < ref_l) && (hi[1] - lo[1] < ref_l)
+            && (domain->dimension != 3 || (hi[2] - lo[2] < ref_l))) {
+            clist[i].flag = 1;
+            (*grad_l)[clist[i].parentID] = allvalues;
+            (*grad_dt)[clist[i].parentID] = allvalues_t;
+        } else clist[i].flag = 0;
+    }
+}
+
 
 /* ----------------------------------------------------------------------
    now have clist with flag=1 for each parent cell that will be coarsened
