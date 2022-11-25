@@ -374,17 +374,24 @@ double AdaptGradCompute::cal_grad(int icell) {
     int nsample = 10;
     for (int face = XLO; face <= ZHI; ++face) {
         if (face >= ZLO && dim != 3) break;
-        double dx;
-        if (face <= XHI) dx = hi[0] - lo[0];
-        else if (face <= YHI) dx = hi[1] - lo[1];
-        else  dx = hi[2] - lo[2];
         int nflag = grid->neigh_decode(nmask, face);
-        if (nflag == NCHILD) {
+        if (nflag == NCHILD || nflag == NPBCHILD) {
             ic = neigh[face];
             if (ic < 0 || cells[ic].nsplit > 1 || q[ic] == 0.0) continue;
+            double dx = 0;
+            for (int j = 0; j < 3; ++j) {
+                if (dim != 3 && j == 2) break;
+                double dxj = (cells[ic].hi[j] + cells[ic].lo[j] - hi[j] - lo[j]) / 2;
+                dx += dxj * dxj;
+            }
+            dx = sqrt(dx);
             grad[face] = abs((q[ic] - q[icell]) / dx);
             exist_grad[face] = 1;
-        } else if (nflag == NPARENT){
+        } else if (nflag == NPARENT || nflag == NPBPARENT){
+            double dx;
+            if (face <= XHI) dx = hi[0] - lo[0];
+            else if (face <= YHI) dx = hi[1] - lo[1];
+            else  dx = hi[2] - lo[2];
             double sample_q = 0.0;
             int ngrad = 0;
             Grid::ParentCell* pcell = &pcells[neigh[face]];
