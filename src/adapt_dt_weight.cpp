@@ -73,6 +73,10 @@ AdaptDtWeight::AdaptDtWeight(SPARTA *sparta) : Pointers(sparta)
   int nlocal = grid->nlocal;
   q = new double[nghost + nlocal];
   exist_q = new int[nghost + nlocal] {};
+  scale_particle_flag = 1;
+  part_scale = NULL;
+  origin_weight = NULL;
+  factor = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -81,6 +85,9 @@ AdaptDtWeight::~AdaptDtWeight()
 {
     delete[] q;
     delete[] exist_q;
+    delete[] part_scale;
+    delete[] origin_weight;
+    delete[] factor;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -110,6 +117,13 @@ void AdaptDtWeight::command(int narg, char **arg)
   double time1 = MPI_Wtime();
 
   sparta->init();
+  if (scale_particle_flag) {
+      int nglocal = grid->nlocal;
+      origin_weight = new int[nglocal];
+      for (int icell = 0; icell < nglocal; icell++) {
+          origin_weight[icell] = grid->cells[icell].dt_weight;
+      }
+  }
 
   if (style == SURF) set_weight_surf();
   else if (style == NEAR_SURF) set_weight_nearsurf();
@@ -119,6 +133,10 @@ void AdaptDtWeight::command(int narg, char **arg)
   else if (style == SAME) set_weight_same();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
   
+  if (scale_particle_flag) {
+      scale_particle();
+  }
+
   grid->remove_ghosts();
   grid->acquire_ghosts();
   grid->find_neighbors();
@@ -261,6 +279,13 @@ void AdaptDtWeight::process_args(int narg, char **arg)
               && (style != VALUE_GRAD))
               error->all(FLERR, "Illegal adapt command");
           round_value();
+          iarg += 2;
+      }
+      else if (strcmp(arg[iarg], "part_scale") == 0) {
+          if (iarg + 2 > narg) error->all(FLERR, "Illegal adapt command");
+          if (strcmp(arg[iarg + 1], "yes") == 0) scale_particle_flag = 1;
+          else if (strcmp(arg[iarg + 1], "no") == 0) scale_particle_flag = 0;
+          else error->all(FLERR, "Illegal adapt command");
           iarg += 2;
       }
       else error->all(FLERR, "Illegal adapt command");
@@ -825,4 +850,53 @@ double AdaptDtWeight::cal_grad(int icell) {
         error->warning(FLERR, "1 cell calulate grad with not enough value");
         return sqrt(result / useful * dim);
     }
+}
+
+void AdaptDtWeight::scale_particle() {
+    if (!particle->sorted) particle->sort();
+    int nglocal = grid->nlocal;
+    factor = new double[nglocal];
+    for (int icell = 0; icell < nglocal; ++icell) {
+        if (grid->cells[icell].dt_weight == origin_weight[icell]) factor[icell] = 1.0;
+        else {
+            factor[icell] = (double)grid->cells[icell].dt_weight / origin_weight[icell];
+        }
+    }
+    int nlocal_original = particle->nlocal;
+    part_scale = new int[nlocal_original];
+
+    RanPark random(update->ranmaster->uniform());
+    Particle::OnePart* particles = particle->particles;
+    int count_delete = 0, count_clone = 0;
+    int nlocal = particle->nlocal;
+    for (int ipart = 0; ipart < nlocal_original; ++ipart) {
+        int icell = particles[ipart].icell;
+        int scale = part_scale[ipart] = floor(factor[icell] + random.uniform());
+        if (scale > 1) {
+            count_clone += scale - 1;
+            for (int i = 1; i < scale; ++i) {
+                int flag = particle->clone_particle(ipart);
+                if (flag) particles = particle->particles;
+                nlocal++;
+                particles[nlocal - 1].id = MAXSMALLINT * random.uniform();
+            }
+        }
+    }
+    int i = 0;
+    nlocal = particle->nlocal;
+    int nbytes = sizeof(Particle::OnePart);
+    int ncustom = particle->ncustom;
+    while (i < nlocal_original) {
+        if (part_scale[i] == 0) {
+            ++count_delete;
+            memcpy(&particles[i], &particles[nlocal - 1], nbytes);
+            if (ncustom) particle->copy_custom(i, nlocal - 1);
+            if (nlocal > nlocal_original) i++;
+            else nlocal_original--;
+            particle->nlocal--;
+            nlocal--;
+        }
+        else i++;
+    }
+
 }

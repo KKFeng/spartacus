@@ -65,6 +65,11 @@ class AdaptDtWeight : protected Pointers {
 
   MyRegion *regionlist;
   int nregion, maxregion;
+  int scale_particle_flag;
+  int* part_scale;
+  double* factor;
+  int* origin_weight;
+
 
   // style = value
   int valuewhich, valindex,icompute,ifix;
@@ -107,6 +112,7 @@ class AdaptDtWeight : protected Pointers {
   void gather_allregion();
   void run_comm();
   double cal_grad(int icell);
+  void scale_particle();
 
 };
 
