@@ -67,6 +67,7 @@ void Grid::refine_cell(int icell, int *childlist, Cut2d *cut2d, Cut3d *cut3d)
 	phi = cells[icell].hi;
         id_child_lohi(plevel,plo,phi,m,lo,hi);
         add_child_cell(childID,plevel+1,lo,hi);
+        cells[nlocal - 1].dt_weight = cells[icell].dt_weight;
         weight_one(nlocal-1);
 	(*hash)[childID] = nlocal-1;
 	
@@ -86,6 +87,9 @@ void Grid::refine_cell(int icell, int *childlist, Cut2d *cut2d, Cut3d *cut3d)
           cinfo[ichild].type = UNKNOWN;
           surf2grid_one(0,ichild,icell,-1,cut3d,cut2d);
 
+          // set dt_weight of split cell
+          for (i = ichild + 1; i < nlocal; i++)
+              cells[i].dt_weight = cells[icell].dt_weight;
           // update any per grid fixes for the newly created sub cells
 
           if (modify->n_pergrid)
@@ -344,6 +348,9 @@ void Grid::coarsen_cell(cellint parentID, int plevel, double *plo, double *phi,
   // assign particles in old child cells to single new child cell
   // new child cell may be a split cell
 
+  // also collect dt_weight and particle count to assign dt_weight of new cell
+  double* all_weighted = new double[nchild] {}; // is deleted?
+  int* all_count = new int[nchild] {};
   Particle::OnePart *particles = particle->particles;
   int *next = particle->next;
   Particle::OnePart *p;
@@ -358,7 +365,9 @@ void Grid::coarsen_cell(cellint parentID, int plevel, double *plo, double *phi,
       jcell = index[m];
       if (cells[jcell].nsplit > 1) combine_split_cell_particles(jcell,0);
       ip = cinfo[jcell].first;
-
+      
+      all_count[m] = cinfo[jcell].count;
+      all_weighted[m] = (double)cinfo[jcell].count/cells[jcell].dt_weight;
       while (ip >= 0) {
         p = &particles[ip];
 
@@ -397,7 +406,9 @@ void Grid::coarsen_cell(cellint parentID, int plevel, double *plo, double *phi,
       particles = particle->particles;
       next = particle->next;
       int nplocal = particle->nlocal;
-
+      
+      all_count[m] += np;
+      all_weighted[m] += (double)np / particles[nplocal - np].dt_weight;
       for (ip = nplocal-np; ip < nplocal; ip++) {
 
 	// if new child is not split: assign particle to icell
@@ -426,4 +437,28 @@ void Grid::coarsen_cell(cellint parentID, int plevel, double *plo, double *phi,
       }
     }
   }
+
+  int n_part = 0;
+  double weight_part = 0;
+  for (m = 0; m < nchild; m++) {
+      if (all_count[m] > 0 && all_weighted >0)continue;
+      n_part += all_count[m];
+      weight_part += all_weighted[m];
+  }
+  int new_dt = (int)(0.5 + n_part / weight_part);
+  if (!(new_dt >= 1)) {
+      new_dt = 1;
+  }
+  cells[newcell].dt_weight = new_dt;
+  if (cells[newcell].nsplit != 1) {
+      int nsplit = cells[newcell].nsplit;
+      int* mycsubs = sinfo[cells[newcell].isplit].csubs;
+      for (int i = 0; i < nsplit; i++) {
+          jcell = mycsubs[i];
+          cells[jcell].dt_weight = new_dt;
+      }
+  }
+  delete[] all_weighted;
+  delete[] all_count;
+
 }
