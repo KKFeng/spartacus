@@ -51,7 +51,7 @@ using namespace SPARTA_NS;
 enum { XLO, XHI, YLO, YHI, ZLO, ZHI, INTERIOR };         // same as Domain
 enum { NCHILD, NPARENT, NUNKNOWN, NPBCHILD, NPBPARENT, NPBUNKNOWN, NBOUND };  // Grid
 enum{DT_MAX, DT_MIN, DT_NONE};
-enum{SAME,SURF,NEAR_SURF,VALUE,VALUE_HEATFLUX,USP_HEATFLUX,VALUE_GRAD,COMPUTE,FIX};
+enum{SAME,SURF,NEAR_SURF,VALUE,VALUE_HEATFLUX,USP_HEATFLUX,VALUE_GRAD,GRAD,COMPUTE,FIX};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 
 #define DELTA_RL 64 // how to grow region list
@@ -129,6 +129,7 @@ void AdaptDtWeight::command(int narg, char **arg)
   else if (style == NEAR_SURF) set_weight_nearsurf();
   else if (style == VALUE) set_weight_value();
   else if (style == VALUE_GRAD) set_weight_value_grad();
+  else if (style == GRAD) set_weight_grad();
   else if (style == VALUE_HEATFLUX || style == USP_HEATFLUX) set_weight_value_heatflux();
   else if (style == SAME) set_weight_same();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
@@ -254,6 +255,14 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       }
       iarg += 8;
 
+  }  else if (strcmp(arg[iarg], "grad") == 0) {
+      if (iarg + 3 > narg) error->all(FLERR, "Illegal adapt command");
+      style = GRAD;
+      coef = input->numeric(FLERR, arg[iarg + 1]);
+      max_dt = input->inumeric(FLERR, arg[iarg + 2]);
+      iarg += 3;
+      if (!grid->gradhashfilled)
+          error->all(FLERR, "adapt_dt_weight style = grad, without existing grad");
   } else if (strcmp(arg[iarg],"same") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal adapt command");
       style = SAME;
@@ -603,6 +612,49 @@ void AdaptDtWeight::set_weight_value_grad() {
         double grad = cal_grad(icell);
         double v_rms = sqrt(3 * update->boltz * value_arr[0] / value_arr[1]);
         double value = coef * update->dt * v_rms * grad / q[icell];
+        if (isnan(value)) {
+            error->warning(FLERR, "dt_weight is not a number, reset to 1");
+            value = 1;
+        }
+        int dt_weight = (int)MIN(max_dt, MAX(1, value + 0.5));
+        if (doround) dt_weight = dt_chain[dt_weight];
+        if (mod == DT_MAX) cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
+        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(dt_weight, cells[icell].dt_weight);
+        else cells[icell].dt_weight = dt_weight;
+    }
+}
+
+void AdaptDtWeight::set_weight_grad() {
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::MyGradHash* grad_dt = grid->grad_dt;
+    int nglocal = grid->nlocal;
+    int warning_count = 0;
+    for (int icell = 0; icell < nglocal; icell++) {
+        if (!(cinfo[icell].mask & groupbit)) continue;
+        if (cinfo[icell].type == INSIDE) continue;
+
+        if (cells[icell].nsplit > 1) continue;
+        if (!exist_q[icell] || !q[icell]) {
+            error->warning(FLERR, "!exist_q[icell] || !q[icell]");
+            continue;
+        }
+        cellint id = cells[icell].id;
+        double ref_dt = BIG;
+        int level = cells[icell].level;
+        while (1) {
+            if (grad_dt->find(id) != grad_dt->end()) {
+                ref_dt = (*grad_dt)[id];
+                break;
+            }
+            id = id & ((1L << grid->plevels[--level].nbits) - 1);
+            if (id <= 0) {
+                ++warning_count; break;
+            }
+        }
+
+        double value = coef * update->dt / ref_dt;
+
         if (isnan(value)) {
             error->warning(FLERR, "dt_weight is not a number, reset to 1");
             value = 1;

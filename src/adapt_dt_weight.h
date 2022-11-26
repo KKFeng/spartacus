@@ -102,6 +102,7 @@ class AdaptDtWeight : protected Pointers {
   void set_weight_value();
   void set_weight_value_heatflux();
   void set_weight_value_grad();
+  void set_weight_grad();
   void set_weight_same();
   void round_value();
   double value_compute(int, int ico = -1);
