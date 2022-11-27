@@ -285,7 +285,7 @@ void AdaptDtWeight::process_args(int narg, char **arg)
           doround = 1;
           if (!(round_frac > 1.0))error->all(FLERR, "Illegal adapt command");
           if ((style != VALUE_HEATFLUX) && (style != USP_HEATFLUX)
-              && (style != VALUE_GRAD))
+              && (style != VALUE_GRAD) && (style != GRAD))
               error->all(FLERR, "Illegal adapt command");
           round_value();
           iarg += 2;
@@ -635,10 +635,6 @@ void AdaptDtWeight::set_weight_grad() {
         if (cinfo[icell].type == INSIDE) continue;
 
         if (cells[icell].nsplit > 1) continue;
-        if (!exist_q[icell] || !q[icell]) {
-            error->warning(FLERR, "!exist_q[icell] || !q[icell]");
-            continue;
-        }
         cellint id = cells[icell].id;
         double ref_dt = BIG;
         int level = cells[icell].level;
