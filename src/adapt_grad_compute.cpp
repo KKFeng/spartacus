@@ -50,7 +50,7 @@ using namespace SPARTA_NS;
 enum { XLO, XHI, YLO, YHI, ZLO, ZHI, INTERIOR };         // same as Domain
 enum { NCHILD, NPARENT, NUNKNOWN, NPBCHILD, NPBPARENT, NPBUNKNOWN, NBOUND };  // Grid
 enum{GRAD_MAX, GRAD_MIN, GRAD_NONE};
-enum{VALUE,COMPUTE,FIX};
+enum{CLEAR,VALUE,COMPUTE,FIX};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 //
 //#define DELTA_RL 64 // how to grow region list
@@ -89,6 +89,18 @@ void AdaptGradCompute::command(int narg, char **arg)
   // process command-line args
 
   process_args(narg,arg);
+
+  if (style == CLEAR) {
+      grid->gradhashfilled = 0;
+      grid->grad_l->clear();
+      grid->grad_dt->clear();
+      if (me == 0) {
+          if (screen) fprintf(screen, "Gradient cleared succesfully !\n");
+          if (logfile) fprintf(logfile, "Gradient cleared succesfully !\n");
+      }
+      return;
+  }
+
   check_args();
 
   // perform adaptation
@@ -129,6 +141,10 @@ void AdaptGradCompute::command(int narg, char **arg)
 
 void AdaptGradCompute::process_args(int narg, char **arg)
 {
+  if (narg == 1 && strcmp(arg[0], "clear") == 0) {
+      style = CLEAR;
+      return;
+  }
   if (narg < 7) error->all(FLERR,"Illegal adapt_grad_compute command");
 
   int igroup = grid->find_group(arg[0]);
