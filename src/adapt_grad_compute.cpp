@@ -277,8 +277,13 @@ void AdaptGradCompute::compute_grad_value() {
             (*grad_l)[id] = value_l;
             (*grad_dt)[id] = value_dt;
         } else {
-            if (mod == GRAD_MIN)(*grad_dt)[id] = MIN(value_dt, (*grad_dt)[id]);
-            else (*grad_l)[id] = MAX(value_l, (*grad_l)[id]);            
+            if (mod == GRAD_MIN) {
+                (*grad_l)[id] = MIN(value_l, (*grad_l)[id]);
+                (*grad_dt)[id] = MIN(value_dt, (*grad_dt)[id]);
+            } else {
+                (*grad_l)[id] = MAX(value_l, (*grad_l)[id]);
+                (*grad_dt)[id] = MAX(value_dt, (*grad_dt)[id]);
+            }
         }
     }
     grid->gradhashfilled = 1;
