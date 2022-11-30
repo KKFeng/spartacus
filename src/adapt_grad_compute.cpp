@@ -227,6 +227,11 @@ void AdaptGradCompute::check_args()
 void AdaptGradCompute::compute_grad_value() {
     Grid::MyGradHash* grad_l = grid->grad_l;
     Grid::MyGradHash* grad_dt = grid->grad_dt;
+    struct AllGrad
+    {
+        cellint id;
+        double dt, l;
+    };
     if (mod == GRAD_NONE) {
         grad_l->clear();
         grad_dt->clear();
@@ -247,6 +252,10 @@ void AdaptGradCompute::compute_grad_value() {
     Grid::ChildInfo* cinfo = grid->cinfo;
     Grid::SplitInfo* sinfo = grid->sinfo;
     int nglocal = grid->nlocal;
+
+    AllGrad* gradlist = new AllGrad[nglocal];
+    int ngrad = 0, ngradmax = nglocal;
+
     for (int icell = 0; icell < nglocal; icell++) {
         if (!(cinfo[icell].mask & groupbit)) continue;
         if (cinfo[icell].type == INSIDE) continue;
@@ -272,20 +281,58 @@ void AdaptGradCompute::compute_grad_value() {
             value_l = value_dt = BIG;
         }
         cellint id = cells[icell].id;
-        if ((mod == GRAD_NONE) || (grid->gradhashfilled == 0) 
+        gradlist[ngrad].id = id;
+        if ((mod == GRAD_NONE) || (grid->gradhashfilled == 0)
             || (grad_l->find(id) == grad_l->end())) {
-            (*grad_l)[id] = value_l;
-            (*grad_dt)[id] = value_dt;
-        } else {
+            gradlist[ngrad].l = value_l;
+            gradlist[ngrad].dt = value_dt;
+        }
+        else {
             if (mod == GRAD_MIN) {
-                (*grad_l)[id] = MIN(value_l, (*grad_l)[id]);
-                (*grad_dt)[id] = MIN(value_dt, (*grad_dt)[id]);
-            } else {
-                (*grad_l)[id] = MAX(value_l, (*grad_l)[id]);
-                (*grad_dt)[id] = MAX(value_dt, (*grad_dt)[id]);
+                gradlist[ngrad].l = MIN(value_l, (*grad_l)[id]);
+                gradlist[ngrad].dt = MIN(value_dt, (*grad_dt)[id]);
+            }
+            else {
+                gradlist[ngrad].l = MAX(value_l, (*grad_l)[id]);
+                gradlist[ngrad].dt = MAX(value_dt, (*grad_dt)[id]);
             }
         }
+        ++ngrad;
     }
+    int me = comm->me;
+    int nprocs = comm->nprocs;
+    int ngradall = 0;
+    MPI_Allreduce(&ngrad, &ngradall, 1, MPI_INT, MPI_SUM, world);
+
+    int* recvcounts, * displs;
+    memory->create(recvcounts, nprocs, "grad:recvcounts");
+    memory->create(displs, nprocs, "grad:displs");
+
+    int nsend = ngrad * sizeof(AllGrad);
+    MPI_Allgather(&nsend, 1, MPI_INT, recvcounts, 1, MPI_INT, world);
+    displs[0] = 0;
+    for (int i = 1; i < nprocs; i++) displs[i] = displs[i - 1] + recvcounts[i - 1];
+    AllGrad* mygradlist = new AllGrad[ngrad];
+    memcpy(mygradlist, gradlist, ngrad * sizeof(AllGrad));
+
+    ngrad = ngradall;
+    if (ngrad >= ngradmax) {
+        ngradmax = ngrad;
+        delete[] gradlist;
+        gradlist = new AllGrad[ngradmax];
+    }
+    MPI_Allgatherv(mygradlist, nsend, MPI_CHAR, gradlist, recvcounts, displs, MPI_CHAR, world);
+
+    delete[] mygradlist;
+    memory->destroy(recvcounts);
+    memory->destroy(displs);
+
+    for (int i = 0; i < ngrad; ++i) {
+        (*grad_l)[gradlist[i].id] = gradlist[i].l;
+        (*grad_dt)[gradlist[i].id] = gradlist[i].dt;
+    }
+    delete[] gradlist;
+
     grid->gradhashfilled = 1;
 }
 

@@ -602,6 +602,8 @@ bigint AdaptGrid::coarsen()
   particle_surf_comm();
   bigint nme = perform_coarsen();
 
+  if (grid->gradhashfilled) compute_grad_after_coarsen();
+
   // ncoarsen = # of coarsened cells across all processors
 
   bigint ncoarsen;
@@ -1367,8 +1369,6 @@ void AdaptGrid::coarsen_random()
 
 void AdaptGrid::coarsen_grad()
 {
-    Grid::MyGradHash* grad_l = grid->grad_l;
-    Grid::MyGradHash* grad_dt = grid->grad_dt;
     int m, nchild;
     for (int i = 0; i < cnum; i++) {
         if (clist[i].flag == 0) continue;
@@ -1393,10 +1393,83 @@ void AdaptGrid::coarsen_grad()
         if ((hi[0] - lo[0] < ref_l) && (hi[1] - lo[1] < ref_l)
             && (domain->dimension != 3 || (hi[2] - lo[2] < ref_l))) {
             clist[i].flag = 1;
-            (*grad_l)[clist[i].parentID] = allvalues;
-            (*grad_dt)[clist[i].parentID] = allvalues_t;
         } else clist[i].flag = 0;
     }
+}
+
+
+void AdaptGrid::compute_grad_after_coarsen() {
+    Grid::MyGradHash* grad_l = grid->grad_l;
+    Grid::MyGradHash* grad_dt = grid->grad_dt;
+    struct AllGrad
+    {
+        cellint id;
+        double dt, l;
+    };
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    Grid::SplitInfo* sinfo = grid->sinfo;
+    int nglocal = grid->nlocal;
+
+    AllGrad* gradlist = new AllGrad[nglocal];
+    int ngrad = 0, ngradmax = nglocal;
+    for (int icell = 0; icell < nglocal; icell++) {
+        if (cinfo[icell].type == INSIDE) continue;
+
+        if (cells[icell].nsplit < 1)  continue;
+
+        cellint id = cells[icell].id;
+        if ( (grad_l->find(id) == grad_l->end())) {
+            gradlist[ngrad].id = id;
+            gradlist[ngrad].dt = BIG;
+            gradlist[ngrad].l = BIG;
+            cellint parentID = cells[icell].id;
+            int plevel = cells[icell].level;
+            int pbits = grid->plevels[plevel].nbits;
+            int nxyz = grid->plevels[plevel].nxyz;
+            for (int i = 1; i <= nxyz; ++i) {
+                cellint childID = ((cellint)i << pbits) | parentID;
+                if (grad_l->find(childID) != grad_l->end()) {
+                    gradlist[ngrad].dt = MIN(gradlist[ngrad].dt, (*grad_dt)[childID]);
+                    gradlist[ngrad].l = MIN(gradlist[ngrad].l, (*grad_l)[childID]);
+                }
+            }
+            ++ngrad;
+        }
+    }
+    int me = comm->me;
+    int nprocs = comm->nprocs;
+    int ngradall = 0;
+    MPI_Allreduce(&ngrad, &ngradall, 1, MPI_INT, MPI_SUM, world);
+
+    int* recvcounts, * displs;
+    memory->create(recvcounts, nprocs, "grad:recvcounts");
+    memory->create(displs, nprocs, "grad:displs");
+
+    int nsend = ngrad * sizeof(AllGrad);
+    MPI_Allgather(&nsend, 1, MPI_INT, recvcounts, 1, MPI_INT, world);
+    displs[0] = 0;
+    for (int i = 1; i < nprocs; i++) displs[i] = displs[i - 1] + recvcounts[i - 1];
+    AllGrad* mygradlist = new AllGrad[ngrad];
+    memcpy(mygradlist, gradlist, ngrad * sizeof(AllGrad));
+
+    ngrad = ngradall;
+    if (ngrad >= ngradmax) {
+        ngradmax = ngrad;
+        delete[] gradlist;
+        gradlist = new AllGrad[ngradmax];
+    }
+    MPI_Allgatherv(mygradlist, nsend, MPI_CHAR, gradlist, recvcounts, displs, MPI_CHAR, world);
+
+    delete[] mygradlist;
+    memory->destroy(recvcounts);
+    memory->destroy(displs);
+
+    for (int i = 0; i < ngrad; ++i) {
+        (*grad_l)[gradlist[i].id] = gradlist[i].l;
+        (*grad_dt)[gradlist[i].id] = gradlist[i].dt;
+    }
+    delete[] gradlist;
 }
 
 
