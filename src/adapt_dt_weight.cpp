@@ -51,7 +51,7 @@ using namespace SPARTA_NS;
 enum { XLO, XHI, YLO, YHI, ZLO, ZHI, INTERIOR };         // same as Domain
 enum { NCHILD, NPARENT, NUNKNOWN, NPBCHILD, NPBPARENT, NPBUNKNOWN, NBOUND };  // Grid
 enum{DT_MAX, DT_MIN, DT_NONE};
-enum{SAME,SURF,NEAR_SURF,VALUE,VALUE_HEATFLUX,USP_HEATFLUX,VALUE_GRAD,GRAD,COMPUTE,FIX};
+enum{SAME,PART,SURF,NEAR_SURF,VALUE,VALUE_HEATFLUX,USP_HEATFLUX,VALUE_GRAD,GRAD,COMPUTE,FIX};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 
 #define DELTA_RL 64 // how to grow region list
@@ -132,10 +132,12 @@ void AdaptDtWeight::command(int narg, char **arg)
   else if (style == GRAD) set_weight_grad();
   else if (style == VALUE_HEATFLUX || style == USP_HEATFLUX) set_weight_value_heatflux();
   else if (style == SAME) set_weight_same();
+  else if (style == SAME) set_weight_part();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
   
   if (scale_particle_flag) {
       scale_particle();
+      particle->sort();
   }
 
   grid->remove_ghosts();
@@ -267,6 +269,12 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       if (iarg+2 > narg) error->all(FLERR,"Illegal adapt command");
       style = SAME;
       same_dt = input->inumeric(FLERR,arg[iarg+1]);
+      iarg += 2;
+
+  } else if (strcmp(arg[iarg],"part") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal adapt command");
+      style = PART;
+      npart = input->inumeric(FLERR,arg[iarg+1]);
       iarg += 2;
 
   } else error->all(FLERR,"Illegal adapt command");
@@ -673,6 +681,23 @@ void AdaptDtWeight::set_weight_same() {
         if (mod == DT_MAX) cells[icell].dt_weight = MAX(same_dt, cells[icell].dt_weight);
         else if (mod == DT_MIN) cells[icell].dt_weight = MIN(same_dt, cells[icell].dt_weight);
         else cells[icell].dt_weight = same_dt;
+    }
+}
+
+void AdaptDtWeight::set_weight_part() {
+    Grid::ChildCell* cells = grid->cells;
+    Grid::ChildInfo* cinfo = grid->cinfo;
+    int nglocal = grid->nlocal;
+    for (int icell = 0; icell < nglocal; icell++) {
+        if (!(cinfo[icell].mask & groupbit)) continue;
+        if (cinfo[icell].type == INSIDE) continue;
+        int new_dt = (double)npart / MAX(cinfo[icell].count, 1) + 1;
+        int dt_weight = (int)MIN(max_dt, MAX(1, new_dt));
+        if (doround) dt_weight = dt_chain[dt_weight];
+
+        if (mod == DT_MAX) cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
+        else if (mod == DT_MIN) cells[icell].dt_weight = MIN(dt_weight, cells[icell].dt_weight);
+        else cells[icell].dt_weight = dt_weight;
     }
 }
 

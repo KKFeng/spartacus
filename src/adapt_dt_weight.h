@@ -94,6 +94,9 @@ class AdaptDtWeight : protected Pointers {
   int* exist_q;
   //style = same
   int same_dt;
+  
+  //style = part;
+  int npart;
 
   // method
 
@@ -104,6 +107,7 @@ class AdaptDtWeight : protected Pointers {
   void set_weight_value_grad();
   void set_weight_grad();
   void set_weight_same();
+  void set_weight_part();
   void round_value();
   double value_compute(int, int ico = -1);
   double value_fix(int, int ifi = -1);
