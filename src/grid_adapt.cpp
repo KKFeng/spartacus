@@ -406,9 +406,11 @@ void Grid::coarsen_cell(cellint parentID, int plevel, double *plo, double *phi,
       particles = particle->particles;
       next = particle->next;
       int nplocal = particle->nlocal;
-      
-      all_count[m] = np;
-      all_weighted[m] = (double)np / particles[nplocal - np].dt_weight;
+      if (np > 0) {
+          all_count[m] = np;
+          all_weighted[m] = (double)np / particles[nplocal - np].dt_weight;
+      }
+
       for (ip = nplocal-np; ip < nplocal; ip++) {
 
 	// if new child is not split: assign particle to icell
@@ -441,7 +443,7 @@ void Grid::coarsen_cell(cellint parentID, int plevel, double *plo, double *phi,
   int n_part = 0;
   double weight_part = 0;
   for (m = 0; m < nchild; m++) {
-      if (!(all_count[m] > 0 && all_weighted > 0))continue;
+      if (!(all_count[m] > 0 && all_weighted[m] > 0))continue;
       n_part += all_count[m];
       weight_part += all_weighted[m];
   }

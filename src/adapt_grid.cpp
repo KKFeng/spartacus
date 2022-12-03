@@ -938,6 +938,15 @@ void AdaptGrid::candidates_coarsen()
   cellint parentID;
   double lo[3],hi[3];
 
+  // set particle dt_weight to comm
+  if (grid->is_dt_weight) {
+      for (int i = 0; i < particle->nlocal; ++i) {
+          particle->particles[i].dt_weight 
+              = grid->cells[particle->particles[i].icell].dt_weight;
+      }
+  }
+
+
   // for style = VALUE, invoke compute each time coarsening is done
   // grid could have changed from previous refinement or coarsening
 
