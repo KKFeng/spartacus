@@ -1443,7 +1443,9 @@ void AdaptGrid::compute_grad_after_coarsen() {
                     gradlist[ngrad].l = MIN(gradlist[ngrad].l, (*grad_l)[childID]);
                 }
             }
-            ++ngrad;
+            if (gradlist[ngrad].dt != BIG && gradlist[ngrad].l != BIG) {
+                ++ngrad;
+            }
         }
     }
     int me = comm->me;
