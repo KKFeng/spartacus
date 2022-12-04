@@ -132,7 +132,7 @@ void AdaptDtWeight::command(int narg, char **arg)
   else if (style == GRAD) set_weight_grad();
   else if (style == VALUE_HEATFLUX || style == USP_HEATFLUX) set_weight_value_heatflux();
   else if (style == SAME) set_weight_same();
-  else if (style == SAME) set_weight_part();
+  else if (style == PART) set_weight_part();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
   
   if (scale_particle_flag) {
@@ -272,10 +272,11 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       iarg += 2;
 
   } else if (strcmp(arg[iarg],"part") == 0) {
-      if (iarg+2 > narg) error->all(FLERR,"Illegal adapt command");
+      if (iarg + 3 > narg) error->all(FLERR, "Illegal adapt command");
       style = PART;
       npart = input->inumeric(FLERR,arg[iarg+1]);
-      iarg += 2;
+      max_dt = input->inumeric(FLERR, arg[iarg + 2]);
+      iarg += 3;
 
   } else error->all(FLERR,"Illegal adapt command");
 
@@ -292,9 +293,6 @@ void AdaptDtWeight::process_args(int narg, char **arg)
           round_frac = input->numeric(FLERR, arg[iarg + 1]);
           doround = 1;
           if (!(round_frac > 1.0))error->all(FLERR, "Illegal adapt command");
-          if ((style != VALUE_HEATFLUX) && (style != USP_HEATFLUX)
-              && (style != VALUE_GRAD) && (style != GRAD))
-              error->all(FLERR, "Illegal adapt command");
           round_value();
           iarg += 2;
       }
