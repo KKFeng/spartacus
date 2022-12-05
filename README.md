@@ -29,7 +29,8 @@ Fei, F., Jenny, P., 2022. [**A high-order unified stochastic particle method bas
 Zhang, J., Yao, S., Fei, F., Ghalambaz, M., Wen, D., 2020. [**Competition of natural convection and thermal creep in a square enclosure.**](https://doi.org/10.1063/5.0022260) Physics of Fluids 32, 102001. 
 
 
-##################################################################
+----------------------------------------------------------------------
+----------------------------------------------------------------------
 
 SPARTA on [GitHub](https://github.com/sparta/sparta): https://github.com/sparta/sparta 
 
