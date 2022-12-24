@@ -63,6 +63,7 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     nparams = particle->nspecies;
     resetWmax = 0.99;
     Pr = 0.666667;
+    interpolate_flag = 1;
     if (nparams == 0)
         error->all(FLERR, "Cannot use collide command with no species defined");
 
@@ -195,11 +196,14 @@ void CollideBGK::collisions()
         if (!relax_flag[i]) continue;
         Particle::OnePart* ipart = &particles[i];
         int icell = ipart->icell;
-        const CommMacro* interMacro = grid->gridCommMacro->interpolation(ipart);
-        if ((!interMacro) || (!(interMacro->Temp > 0))) {
-            if (!interMacro)
-                error->warning(FLERR, "CollideBGK:interpolation failed!(!interMacro)");
-            interMacro = &grid->cells[icell].macro;
+        const CommMacro* interMacro = &grid->cells[icell].macro;
+        if (interpolate_flag) {
+            interMacro = grid->gridCommMacro->interpolation(ipart);
+            if ((!interMacro) || (!(interMacro->Temp > 0))) {
+                if (!interMacro)
+                    error->warning(FLERR, "CollideBGK:interpolation failed!(!interMacro)");
+                interMacro = &grid->cells[icell].macro;
+            }
         }
         if (bgk_mod == USP) perform_uspbgk(ipart, icell, interMacro);
         else if (bgk_mod == BGK) perform_bgkbgk(ipart, icell, interMacro);
@@ -744,6 +748,12 @@ void CollideBGKModify::command(int narg, char** arg)
             collideBGK->time_ave_coef = atof(arg[iarg + 1]);
             if (collideBGK->time_ave_coef < 0 || collideBGK->time_ave_coef >=1)
                 error->all(FLERR, "Illegal collide_bgk_modify time_ave_coef");
+            iarg += 2;
+        }else if (strcmp(arg[iarg], "interpolate") == 0) {
+            if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
+            if (strcmp(arg[iarg], "yes") == 0) collideBGK->interpolate_flag = 1;
+            else if (strcmp(arg[iarg], "no") == 0) collideBGK->interpolate_flag = 0;
+            else error->all(FLERR, "Illegal collide_bgk_modify command");
             iarg += 2;
         }
         else error->all(FLERR, "Illegal collide_bgk_modify command");

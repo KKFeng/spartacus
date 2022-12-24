@@ -88,7 +88,8 @@ class CollideBGK : public Collide {
   Params *params;             // BGK params for each species
   int nparams;                // # of per-species params read in
   int maxglocal;
-  int *resetWmax_flag;    // flag to decide whether resetWmax in current cell
+  int interpolate_flag;       // 1/0 = yes/no do interpolation, default = 1;
+  int *resetWmax_flag;        // flag to decide whether resetWmax in current cell
   double resetWmax;           // coefficient to reduce Wmax, default = 0.9999,
                               // if resetWmax <= 0, don't do reset
   int bgk_mod;
