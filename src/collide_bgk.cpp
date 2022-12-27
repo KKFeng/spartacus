@@ -751,8 +751,8 @@ void CollideBGKModify::command(int narg, char** arg)
             iarg += 2;
         }else if (strcmp(arg[iarg], "interpolate") == 0) {
             if (iarg + 2 > narg) error->all(FLERR, "Illegal collide_bgk_modify command");
-            if (strcmp(arg[iarg], "yes") == 0) collideBGK->interpolate_flag = 1;
-            else if (strcmp(arg[iarg], "no") == 0) collideBGK->interpolate_flag = 0;
+            if (strcmp(arg[iarg + 1], "yes") == 0) collideBGK->interpolate_flag = 1;
+            else if (strcmp(arg[iarg + 1], "no") == 0) collideBGK->interpolate_flag = 0;
             else error->all(FLERR, "Illegal collide_bgk_modify command");
             iarg += 2;
         }
