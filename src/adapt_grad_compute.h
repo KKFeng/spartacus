@@ -39,6 +39,11 @@ CommandStyle(adapt_grad_compute,AdaptGradCompute)
 
 namespace SPARTA_NS {
 
+struct AllGrad
+{
+    cellint id;
+    double dt, l;
+};
 class AdaptGradCompute : protected Pointers {
  public:
 
@@ -61,6 +66,10 @@ class AdaptGradCompute : protected Pointers {
   // extra buffer, each length = nghost + nlocal
   double* q;
   int* exist_q;
+
+  // if > 0, all cells will get the biggest grad within this range
+  // otherwise, they will just get their own grad
+  double range;
 
   //// method
   void compute_grad_value();

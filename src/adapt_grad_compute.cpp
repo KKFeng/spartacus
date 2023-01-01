@@ -67,6 +67,7 @@ AdaptGradCompute::AdaptGradCompute(SPARTA *sparta) : Pointers(sparta)
   int ncell = grid->nghost + grid->nlocal;
   q = new double[ncell];
   exist_q = new int[ncell] {};
+  range = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -192,7 +193,13 @@ void AdaptGradCompute::process_args(int narg, char **arg)
           else if (strcmp(arg[iarg + 1], "none") == 0) mod = GRAD_NONE;
           else error->all(FLERR, "Illegal adapt_grad_compute command");
           iarg += 2;
-      } else error->all(FLERR, "Illegal adapt_grad_compute command");
+      } if (strcmp(arg[iarg], "region") == 0) {
+          if (iarg + 2 > narg) error->all(FLERR, "Illegal adapt_grad_compute command");
+          range = input->numeric(FLERR, arg[iarg + 1]);
+          if (range <= 0) range = 0.0;
+          iarg += 2;
+      }
+      else error->all(FLERR, "Illegal adapt_grad_compute command");
   }
 
 }
@@ -243,11 +250,7 @@ void AdaptGradCompute::check_args()
 void AdaptGradCompute::compute_grad_value() {
     Grid::MyGradHash* grad_l = grid->grad_l;
     Grid::MyGradHash* grad_dt = grid->grad_dt;
-    struct AllGrad
-    {
-        cellint id;
-        double dt, l;
-    };
+
     if (mod == GRAD_NONE) {
         grad_l->clear();
         grad_dt->clear();
@@ -315,6 +318,8 @@ void AdaptGradCompute::compute_grad_value() {
         }
         ++ngrad;
     }
+    int nmygrad = ngrad;
+
     int me = comm->me;
     int nprocs = comm->nprocs;
     int ngradall = 0;
@@ -339,20 +344,69 @@ void AdaptGradCompute::compute_grad_value() {
     }
     MPI_Allgatherv(mygradlist, nsend, MPI_CHAR, gradlist, recvcounts, displs, MPI_CHAR, world);
 
-    delete[] mygradlist;
-    memory->destroy(recvcounts);
-    memory->destroy(displs);
+    if (range > 0) {
+        // compute xc of all cell;
+        int dim = domain->dimension;
+        double* xc = new double[ngrad];
+        double* yc = new double[ngrad];
+        double* zc = new double[ngrad];
+        double* boxlo = domain->boxlo;
+        double* boxhi = domain->boxhi;
+        for (int j = 0; j < ngrad; ++j) {
+            double lo[3], hi[3];
+            cellint id = gradlist[j].id;
+            int level = grid->id_level(id);
+            grid->id_lohi(id, level, boxlo, boxhi, lo, hi);
+            xc[j] = (lo[0] + hi[0]) / 2;
+            yc[j] = (lo[1] + hi[1]) / 2;
+            zc[j] = (lo[2] + hi[2]) / 2;
+        }
+
+        for (int i = 0; i < nmygrad; ++i) {
+            cellint& id = mygradlist[i].id;
+            double& l = mygradlist[i].l;
+            double& dt = mygradlist[i].dt;
+            double lo[3], hi[3], cen[3];
+            int level = grid->id_level(id);
+            grid->id_lohi(id, level, boxlo, boxhi, lo, hi);
+            cen[0] = (lo[0] + hi[0]) / 2;
+            cen[1] = (lo[1] + hi[1]) / 2;
+            cen[2] = (lo[2] + hi[2]) / 2;
+            for (int k = 0; k < 3; ++k) {
+                lo[k] -= range;
+                hi[k] += range;
+            }
+            for (int j = 0; j < ngrad; ++j) {
+                if (l < gradlist[j].l && dt < gradlist[j].dt) continue;
+                if (xc[j]<lo[0] || xc[j] > hi[0] || yc[j]<lo[1] || yc[j] > hi[1]
+                    || zc[j]<lo[2] || zc[j] > hi[2]) continue;
+                if (dim == 3 && (xc[j] - cen[0]) * (xc[j] - cen[0]) + (yc[j] - cen[1]) * (yc[j] - cen[1])
+                    + (zc[j] - cen[2]) * (zc[j] - cen[2]) > range * range) continue;
+                else if ((xc[j] - cen[0]) * (xc[j] - cen[0]) + (yc[j] - cen[1]) * (yc[j] - cen[1]) > range * range) continue;
+                l = MIN(l, gradlist[j].l);
+                dt = MIN(dt, gradlist[j].dt);
+            }
+
+        }
+
+        delete[] xc;
+        delete[] yc;
+        delete[] zc;
+        MPI_Allgatherv(mygradlist, nsend, MPI_CHAR, gradlist, recvcounts, displs, MPI_CHAR, world);
+    }
 
     for (int i = 0; i < ngrad; ++i) {
         (*grad_l)[gradlist[i].id] = gradlist[i].l;
         (*grad_dt)[gradlist[i].id] = gradlist[i].dt;
     }
+
+    memory->destroy(recvcounts);
+    memory->destroy(displs);
+    delete[] mygradlist;
     delete[] gradlist;
 
     grid->gradhashfilled = 1;
 }
-
-
 
 /* ----------------------------------------------------------------------
    extract a value for icell,valindex from a compute
