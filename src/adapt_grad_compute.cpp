@@ -193,7 +193,7 @@ void AdaptGradCompute::process_args(int narg, char **arg)
           else if (strcmp(arg[iarg + 1], "none") == 0) mod = GRAD_NONE;
           else error->all(FLERR, "Illegal adapt_grad_compute command");
           iarg += 2;
-      } if (strcmp(arg[iarg], "region") == 0) {
+      } else if (strcmp(arg[iarg], "region") == 0) {
           if (iarg + 2 > narg) error->all(FLERR, "Illegal adapt_grad_compute command");
           range = input->numeric(FLERR, arg[iarg + 1]);
           if (range <= 0) range = 0.0;
