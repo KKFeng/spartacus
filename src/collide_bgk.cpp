@@ -248,6 +248,7 @@ void CollideBGK::conservV() {
     }
     for (int icell = 0; icell < nlocal; ++icell) {
         conservMacro[icell].done_relaxation = grid->cinfo[icell].macro.do_relaxation;
+        conservMacro[icell].coef = 1;
         if (!conservMacro[icell].done_relaxation) continue;
         double np = grid->cinfo[icell].count;
         double theta = ((double)(np-1)/np)*grid->cells[icell].macro.Temp / particle->species[0].mass * update->boltz;
@@ -261,7 +262,12 @@ void CollideBGK::conservV() {
         double theta_post = (nmacro.sum_vij[0]
             - (nmacro.sum_vi[0] * nmacro.sum_vi[0] + nmacro.sum_vi[1] * nmacro.sum_vi[1]
                 + nmacro.sum_vi[2] * nmacro.sum_vi[2]) / np) / np / 3;
-        conservMacro[icell].coef = sqrt(theta / theta_post);
+        if (theta > 0 && theta_post > 0) {
+            conservMacro[icell].coef = sqrt(theta / theta_post);
+        }
+        else {
+            error->warning(FLERR, "conservV failed in 1 cell");
+        }
     }
     for (int ipart = 0; ipart < particle->nlocal; ++ipart) {
         Particle::OnePart& part = particle->particles[ipart];
@@ -426,6 +432,7 @@ template < int MOD > void CollideBGK::computeMacro()
 {
     for (int icell = 0; icell < nglocal; icell++)
     {
+        grid->cells[icell].macro.Temp = 0.0;
         NoCommMacro& nmacro = grid->cinfo[icell].macro;
         nmacro.sum_vi[0] = nmacro.sum_vi[1] = nmacro.sum_vi[2] = 0.0;
         nmacro.sum_vij[0] = nmacro.sum_vij[1] = nmacro.sum_vij[2] = 0.0;
