@@ -509,7 +509,7 @@ template < int MOD > void CollideBGK::computeMacro()
             // time-average qi
             for (int i = 0; i < 3; ++i) {
                 mean_nmacro.qi[i] = mean_nmacro.qi[i] * time_ave_coef
-                + qi[i] * (1.0 - time_ave_coef) / (1 + Pr * mean_nmacro.tao);
+                + qi[i] * (1.0 - time_ave_coef);
             }
             // prefactor of weight in Acceptance-Rejection Method
             if (MOD == USP) {
