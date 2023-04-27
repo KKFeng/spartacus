@@ -68,6 +68,8 @@ AdaptGradCompute::AdaptGradCompute(SPARTA *sparta) : Pointers(sparta)
   q = new double[ncell];
   exist_q = new int[ncell] {};
   range = 0.0;
+  decreas_coef = 0.0;
+  min_dt = min_dx = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -194,10 +196,16 @@ void AdaptGradCompute::process_args(int narg, char **arg)
           else error->all(FLERR, "Illegal adapt_grad_compute command");
           iarg += 2;
       } else if (strcmp(arg[iarg], "region") == 0) {
-          if (iarg + 2 > narg) error->all(FLERR, "Illegal adapt_grad_compute command");
+          if (iarg + 3 > narg) error->all(FLERR, "Illegal adapt_grad_compute command");
           range = input->numeric(FLERR, arg[iarg + 1]);
+          decreas_coef = input->numeric(FLERR, arg[iarg + 2]);
           if (range <= 0) range = 0.0;
-          iarg += 2;
+          iarg += 3;
+      } else if (strcmp(arg[iarg], "min") == 0) {
+          if (iarg + 3 > narg) error->all(FLERR, "Illegal adapt_grad_compute command");
+          min_dt = input->numeric(FLERR, arg[iarg + 1]);
+          min_dx = input->numeric(FLERR, arg[iarg + 2]);
+          iarg += 3;
       }
       else error->all(FLERR, "Illegal adapt_grad_compute command");
   }
@@ -316,6 +324,8 @@ void AdaptGradCompute::compute_grad_value() {
                 gradlist[ngrad].dt = MAX(value_dt, (*grad_dt)[id]);
             }
         }
+        gradlist[ngrad].l = MAX(gradlist[ngrad].l, min_dx);
+        gradlist[ngrad].dt = MAX(gradlist[ngrad].dt, min_dt);
         ++ngrad;
     }
     int nmygrad = ngrad;
@@ -380,11 +390,12 @@ void AdaptGradCompute::compute_grad_value() {
                 if (l < gradlist[j].l && dt < gradlist[j].dt) continue;
                 if (xc[j]<lo[0] || xc[j] > hi[0] || yc[j]<lo[1] || yc[j] > hi[1]
                     || zc[j]<lo[2] || zc[j] > hi[2]) continue;
-                if (dim == 3 && (xc[j] - cen[0]) * (xc[j] - cen[0]) + (yc[j] - cen[1]) * (yc[j] - cen[1])
-                    + (zc[j] - cen[2]) * (zc[j] - cen[2]) > range * range) continue;
-                else if ((xc[j] - cen[0]) * (xc[j] - cen[0]) + (yc[j] - cen[1]) * (yc[j] - cen[1]) > range * range) continue;
-                l = MIN(l, gradlist[j].l);
-                dt = MIN(dt, gradlist[j].dt);
+                double dx = sqrt((xc[j] - cen[0]) * (xc[j] - cen[0]) + (yc[j] - cen[1]) * (yc[j] - cen[1])
+                    + (zc[j] - cen[2]) * (zc[j] - cen[2]) * (dim == 3));
+                if (dx > range) continue;
+                double coef = pow(decreas_coef,dx / range);
+                l = MIN(l, gradlist[j].l * coef);
+                dt = MIN(dt, gradlist[j].dt * coef);
             }
 
         }

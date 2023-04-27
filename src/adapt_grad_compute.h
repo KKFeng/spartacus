@@ -70,6 +70,9 @@ class AdaptGradCompute : protected Pointers {
   // if > 0, all cells will get the biggest grad within this range
   // otherwise, they will just get their own grad
   double range;
+  double decreas_coef;
+
+  double min_dt, min_dx;
 
   //// method
   void compute_grad_value();
