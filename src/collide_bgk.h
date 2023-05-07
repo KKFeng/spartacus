@@ -95,6 +95,7 @@ class CollideBGK : public Collide {
   int bgk_mod;
   double Pr;                  // Prantl number
   double time_ave_coef;
+  double alpha_Pc;
 
   bool* relax_flag;
   int nplocalmax;

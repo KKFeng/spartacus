@@ -63,6 +63,7 @@ CollideBGK::CollideBGK(SPARTA* sparta, int narg, char** arg) :
     nparams = particle->nspecies;
     resetWmax = 0.99;
     Pr = 0.666667;
+    alpha_Pc = 0.1;
     interpolate_flag = 1;
     if (nparams == 0)
         error->all(FLERR, "Cannot use collide command with no species defined");
@@ -546,10 +547,19 @@ template < int MOD > void CollideBGK::computeMacro()
             }
             // prefactor of weight in Acceptance-Rejection Method
             if (MOD == USP) {
+                double Pc = exp(-alpha_Pc / (2 * mean_nmacro.tao));
+                if (alpha_Pc < 0) Pc = 0;
                 double p_theta = p * cmacro.Temp / mass * update->boltz;
                 double tao_coth = mean_nmacro.tao * (1.0 + 2.0 / (exp(mean_nmacro.tao * 2.0) - 1.0));
-                mean_nmacro.coef_A = (1.0 - tao_coth) / (2.0 * p_theta);
-                mean_nmacro.coef_B = (1.0 - Pr * tao_coth) / (5.0 * p_theta);
+                if (alpha_Pc == 0) {
+                    mean_nmacro.coef_A = (1.0 - tao_coth) / (2.0 * p_theta);
+                    mean_nmacro.coef_B = (1.0 - Pr * tao_coth) / (5.0 * p_theta);
+                } else {
+                    mean_nmacro.coef_A = Pc * (1.0 - tao_coth) / (2.0 * p_theta);
+                    mean_nmacro.coef_B = (Pc * (1.0 - Pr * tao_coth) + (1 - Pc) * 
+                        (exp(mean_nmacro.tao * 2.0 * (1 - Pr)) - 1) / (exp(mean_nmacro.tao * 2.0) - 1)) / (5.0 * p_theta);
+                }
+
             }
             else if (MOD == SBGK) {
                 mean_nmacro.coef_B = (1.0 - Pr) / (5.0 * p * cmacro.Temp / mass * update->boltz);
