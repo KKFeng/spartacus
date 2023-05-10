@@ -74,6 +74,14 @@ class AdaptGradCompute : protected Pointers {
 
   double min_dt, min_dx;
 
+  // keyword = limit
+  int islimit;
+  double  d_ref, t_ref, omega;
+  int limit_valuewhich_arr, limit_valindex_arr, limit_icompute_arr, limit_ifix_arr;
+  char* limit_computeID_arr, * limit_valueID_arr;
+  class Compute* limit_compute_arr;
+  class Fix* limit_fix_arr;
+
   //// method
   void compute_grad_value();
   double value_compute(int, int ico);

@@ -44,6 +44,7 @@
 #include "irregular.h"
 #include "random_mars.h"
 #include "random_park.h"
+#include "math_const.h"
 
 using namespace SPARTA_NS;
 
@@ -70,6 +71,7 @@ AdaptGradCompute::AdaptGradCompute(SPARTA *sparta) : Pointers(sparta)
   range = 0.0;
   decreas_coef = 0.0;
   min_dt = min_dx = 0.0;
+  islimit = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -206,7 +208,35 @@ void AdaptGradCompute::process_args(int narg, char **arg)
           min_dt = input->numeric(FLERR, arg[iarg + 1]);
           min_dx = input->numeric(FLERR, arg[iarg + 2]);
           iarg += 3;
-      }
+      } else if (strcmp(arg[iarg], "limit") == 0) {
+          if (iarg + 5 > narg) error->all(FLERR, "Illegal adapt_grad_compute command");
+          islimit = 1;
+          if (strncmp(arg[iarg + 1], "c_", 2) == 0) limit_valuewhich_arr = COMPUTE;
+          else if (strncmp(arg[iarg + 1], "f_", 2) == 0) limit_valuewhich_arr = FIX;
+          else error->all(FLERR, "Illegal adapt_grad_compute command");
+
+          int n = strlen(arg[iarg + 1]);
+          char* suffix = new char[n];
+          strcpy(suffix, &arg[iarg + 1][2]);
+
+          char* ptr = strchr(suffix, '[');
+          if (ptr) {
+              if (suffix[strlen(suffix) - 1] != ']')
+                  error->all(FLERR, "Illegal adapt_grad_compute command");
+              limit_valindex_arr = atoi(ptr + 1);
+              *ptr = '\0';
+          }
+          else limit_valindex_arr = 0;
+          n = strlen(suffix) + 1;
+          limit_valueID_arr = new char[n];
+          strcpy(limit_valueID_arr, suffix);
+          delete[] suffix;
+
+          d_ref = input->numeric(FLERR, arg[iarg + 2]);
+          t_ref = input->numeric(FLERR, arg[iarg + 3]);
+          omega = input->numeric(FLERR, arg[iarg + 4]);
+          iarg += 5;
+      } 
       else error->all(FLERR, "Illegal adapt_grad_compute command");
   }
 
@@ -253,6 +283,36 @@ void AdaptGradCompute::check_args()
             }
         }
     }
+
+    if (islimit) {
+        if (limit_valuewhich_arr == COMPUTE) {
+            limit_icompute_arr = modify->find_compute(limit_valueID_arr);
+            if (limit_icompute_arr < 0)
+                error->all(FLERR, "Compute ID for adapt does not exist");
+            if (modify->compute[limit_icompute_arr]->per_grid_flag == 0)
+                error->all(FLERR,
+                    "Adapt compute does not calculate per-grid values");
+            if (limit_valindex_arr == 0 && modify->compute[limit_icompute_arr]->size_per_grid_cols != 0)
+                error->all(FLERR, "Adapt compute does not calculate a per-grid vector");
+            if (limit_valindex_arr && modify->compute[limit_icompute_arr]->size_per_grid_cols == 0)
+                error->all(FLERR, "Adapt compute does not calculate a per-grid array");
+            if (limit_valindex_arr && limit_valindex_arr > modify->compute[limit_icompute_arr]->size_per_grid_cols)
+                error->all(FLERR, "Adapt compute array is accessed out-of-range");
+        }
+        else if (limit_valuewhich_arr == FIX) {
+            limit_ifix_arr = modify->find_fix(limit_valueID_arr);
+            if (limit_ifix_arr < 0)
+                error->all(FLERR, "Fix ID for adapt does not exist");
+            if (modify->fix[limit_ifix_arr]->per_grid_flag == 0)
+                error->all(FLERR, "Adapt fix does not calculate per-grid values");
+            if (limit_valindex_arr == 0 && modify->fix[limit_ifix_arr]->size_per_grid_cols != 0)
+                error->all(FLERR, "Adapt fix does not calculate a per-grid vector");
+            if (limit_valindex_arr && modify->fix[limit_ifix_arr]->size_per_grid_cols == 0)
+                error->all(FLERR, "Adapt fix does not calculate a per-grid array");
+            if (limit_valindex_arr && limit_valindex_arr > modify->fix[limit_ifix_arr]->size_per_grid_cols)
+                error->all(FLERR, "Adapt fix array is accessed out-of-range");
+        }
+    }
 }
 
 void AdaptGradCompute::compute_grad_value() {
@@ -274,6 +334,16 @@ void AdaptGradCompute::compute_grad_value() {
         }
         else if (valuewhich_arr[i] == FIX) fix_arr[i] = modify->fix[ifix_arr[i]];
     }
+    if (islimit) {
+        if (limit_valuewhich_arr == COMPUTE) {
+            limit_compute_arr = modify->compute[limit_icompute_arr];
+            limit_compute_arr->compute_per_grid();
+            if (limit_compute_arr->post_process_grid_flag)
+                limit_compute_arr->post_process_grid(limit_valindex_arr, 1, NULL, NULL, NULL, 1);
+        }
+        else if (limit_valuewhich_arr == FIX) limit_fix_arr = modify->fix[limit_ifix_arr];
+    }
+
     run_comm();
     Grid::ChildCell* cells = grid->cells;
     Grid::ChildInfo* cinfo = grid->cinfo;
@@ -324,8 +394,28 @@ void AdaptGradCompute::compute_grad_value() {
                 gradlist[ngrad].dt = MAX(value_dt, (*grad_dt)[id]);
             }
         }
-        gradlist[ngrad].l = MAX(gradlist[ngrad].l, min_dx);
-        gradlist[ngrad].dt = MAX(gradlist[ngrad].dt, min_dt);
+
+        double limit_l = 0, limit_dt = 0;
+        if (islimit) {
+            double rho = BIG;
+            if (limit_valuewhich_arr == COMPUTE) {
+                if (limit_valindex_arr == 0 || limit_compute_arr->post_process_grid_flag)
+                    rho = limit_compute_arr->vector_grid[icell];
+                else rho = limit_compute_arr->array_grid[icell][limit_valindex_arr - 1];
+            }
+            else if (limit_valuewhich_arr == FIX) {
+                if (limit_valindex_arr == 0) rho = limit_fix_arr->vector_grid[icell];
+                else rho = limit_fix_arr->array_grid[icell][limit_valindex_arr - 1];
+            }
+
+            limit_l = 1 / (sqrt(2) * MathConst::MY_PI * d_ref * d_ref * rho / value_arr[1]
+                * pow(t_ref / value_arr[0], omega - 0.5));
+            limit_dt = limit_l / v_rms;
+            if (isnan(limit_l) || isnan(limit_dt)) limit_l = limit_dt = 0;
+        }
+
+        gradlist[ngrad].l = MAX(MAX(gradlist[ngrad].l, min_dx), limit_l);
+        gradlist[ngrad].dt = MAX(MAX(gradlist[ngrad].dt, min_dt), limit_dt);
         ++ngrad;
     }
     int nmygrad = ngrad;
