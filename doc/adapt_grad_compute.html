@@ -12,8 +12,9 @@
 </PRE>
 <LI>group-ID = group ID for which gradient of quantities will be computed 
 
-<LI>style = <I>value</I> 
-
+<LI>style = <I>clear</I> or  <I>value</I>
+<PRE>  <I>clear</I> args = none
+</PRE>
 <PRE>  <I>value</I> args = c/f_temp c/f_mass c/f_q1  c/f_q2  c/f_q3  
     c/f_q.. = ID of a compute(or fix) that calculates a macro quantities.
     c/f_temp = ID of a compute(or fix) that calculates temperature of every cell
@@ -21,11 +22,29 @@
 </PRE>
 <LI>zero or more keyword/args pairs may be appended 
 
-<LI>keyword = <I>mode</I>
+<LI>keyword = <I>mode</I> or <I>region</I> or <I>min</I> or <I>limit</I>
 
 <PRE>  <I>mode</I> arg = max/min/none
     max/min/none = whether and how to consider existing grad in this cell when setting new grad   
 </PRE>
+
+<PRE>  <I>region</I> arg = range decreas_coef 
+    range = every cell will get the biggest gradient of neighbor cells within this range 
+    decreas_coef = decrease coefficient of gradient.
+</PRE>
+
+<PRE>  <I>min</I> arg = min_dt min_dx
+    min_dt = The lower bound of the characteristic time calculated by the gradient
+    min_dx = The lower bound of the characteristic length calculated by the gradient
+</PRE>
+
+<PRE>  <I>limit</I> arg = c/f_rho d_ref t_ref omega
+    c/f_rho = ID of a compute(or fix) that calculates mass density of cells
+    d_ref = reference dimeter of particles
+    t_ref = reference temperature of d_ref 
+    omega = viscosity index, d/d_ref = (t/t_ref)^(omega-0.5) 
+</PRE>
+
 
 </UL>
 <P><B>Examples:</B>

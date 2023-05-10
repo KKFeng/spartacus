@@ -12,7 +12,7 @@
 </PRE>
 <LI>group-ID = group ID for which grid cell adaptation will be attempted 
 
-<LI>style = <I>surf</I> or <I>near_surf</I> or <I>same</I> or <I>value</I> 
+<LI>style = <I>surf</I> or <I>near_surf</I> or <I>same</I> or <I>value</I>  or <I>grad</I>  or <I>part</I> 
 
 <PRE>  <I>surf</I> args = surfID n_dt
     surfID = group ID for which surface elements to consider
@@ -38,18 +38,26 @@
     c/f_mass = ID of a compute(or fix) that calculates mean mass of particles of every cell  
   <I>value_grad</I> args = coef max_dt c/f_temp c/f_mass c/f_q1  c/f_q2  c/f_q3  
     coef = coefficient in calculation of timestep
-    max_dt = max dt_weight, dt_weigth = min(max_dt, dt_weigth)
+    max_dt = max dt_weight, dt_weigth = min(max_dt, dt_weight)
     c/f_q.. = ID of a compute(or fix) that calculates a macro quantities.
     c/f_temp = ID of a compute(or fix) that calculates temperature of every cell
     c/f_mass = ID of a compute(or fix) that calculates mean mass of particles of every cell  	
+  <I>value_grad</I> args = coef max_dt 
+    coef = coefficient in calculation of timestep
+    max_dt = max dt_weight, dt_weigth = min(max_dt, dt_weight) 
+  <I>part</I> args = npart max_dt 
+    npart =  dt_weight will be larger to raise number of part, so that N >=npart
+    max_dt = max dt_weight, dt_weigth = min(max_dt, dt_weight) 
 </PRE>
 <LI>zero or more keyword/args pairs may be appended 
 
-<LI>keyword = <I>mode</I>
+<LI>keyword = <I>mode</I> or <I>part_scale</I> 
 
-<PRE>  <I>mode</I> arg = max/min/none
-    max/min/none = whether and how to consider existing dt_weight in this cell when setting new dt_weight   
+<PRE>  <I>mode</I> arg = yes/no
+    yes/no = whether do similar work of command <A HREF = "scale_particles.html">"scale_particles"</A> after adapt_dt_weight 
 </PRE>
+
+
 
 </UL>
 <P><B>Examples:</B>
