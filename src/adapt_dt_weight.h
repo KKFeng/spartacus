@@ -98,6 +98,8 @@ class AdaptDtWeight : protected Pointers {
   //style = part;
   int npart;
 
+  // keyword = value_part
+  int do_value_part;
   // method
 
   void set_weight_surf();

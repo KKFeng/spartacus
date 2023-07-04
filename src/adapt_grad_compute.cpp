@@ -476,7 +476,10 @@ void AdaptGradCompute::compute_grad_value() {
                 lo[k] -= range;
                 hi[k] += range;
             }
+            if (!(l > 0)) l = BIG;
+            if (!(dt > 0)) dt = BIG;
             for (int j = 0; j < ngrad; ++j) {
+                if (!(gradlist[j].l > 0) || !(gradlist[j].dt > 0)) continue;
                 if (l < gradlist[j].l && dt < gradlist[j].dt) continue;
                 if (xc[j]<lo[0] || xc[j] > hi[0] || yc[j]<lo[1] || yc[j] > hi[1]
                     || zc[j]<lo[2] || zc[j] > hi[2]) continue;

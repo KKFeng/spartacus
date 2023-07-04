@@ -51,7 +51,7 @@ using namespace SPARTA_NS;
 enum { XLO, XHI, YLO, YHI, ZLO, ZHI, INTERIOR };         // same as Domain
 enum { NCHILD, NPARENT, NUNKNOWN, NPBCHILD, NPBPARENT, NPBUNKNOWN, NBOUND };  // Grid
 enum{DT_MAX, DT_MIN, DT_NONE};
-enum{SAME,PART,SURF,NEAR_SURF,VALUE,VALUE_R,VALUE_HEATFLUX,USP_HEATFLUX,VALUE_GRAD,GRAD,COMPUTE,FIX};
+enum{SAME,PART,SURF,NEAR_SURF,VALUE,VALUE_R,VALUE_PART,VALUE_HEATFLUX,USP_HEATFLUX,VALUE_GRAD,GRAD,COMPUTE,FIX};
 enum { UNKNOWN, OUTSIDE, INSIDE, OVERLAP };   // several files
 
 #define DELTA_RL 64 // how to grow region list
@@ -77,6 +77,7 @@ AdaptDtWeight::AdaptDtWeight(SPARTA *sparta) : Pointers(sparta)
   part_scale = NULL;
   origin_weight = NULL;
   factor = NULL;
+  do_value_part = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -127,7 +128,8 @@ void AdaptDtWeight::command(int narg, char **arg)
 
   if (style == SURF) set_weight_surf();
   else if (style == NEAR_SURF) set_weight_nearsurf();
-  else if ((style == VALUE) || (style == VALUE_R)) set_weight_value();
+  else if ((style == VALUE) || (style == VALUE_R) 
+      || (style == VALUE_PART)) set_weight_value();
   else if (style == VALUE_GRAD) set_weight_value_grad();
   else if (style == GRAD) set_weight_grad();
   else if (style == VALUE_HEATFLUX || style == USP_HEATFLUX) set_weight_value_heatflux();
@@ -135,6 +137,7 @@ void AdaptDtWeight::command(int narg, char **arg)
   else if (style == PART) set_weight_part();
   else error->all(FLERR, "wrong adapt_dt_weight_style");
   
+  if (do_value_part) set_weight_value();
   if (scale_particle_flag) {
       scale_particle();
       particle->sort();
@@ -195,9 +198,12 @@ void AdaptDtWeight::process_args(int narg, char **arg)
       surf_ndt = input->inumeric(FLERR, arg[iarg + 3]);
       iarg += 4;
 
-  } else if ((strcmp(arg[iarg],"value") == 0)|| (strcmp(arg[iarg], "value_r") == 0)) {
+  } else if ((strcmp(arg[iarg],"value") == 0)
+      || (strcmp(arg[iarg], "value_r") == 0)
+      || (strcmp(arg[iarg], "value_part") == 0)) {
       if (iarg+4 > narg) error->all(FLERR,"Illegal adapt command");
       if (strcmp(arg[iarg], "value") == 0)style = VALUE;
+      else if (strcmp(arg[iarg], "value_part") == 0)style = VALUE_PART;
       else style = VALUE_R;
       if (strncmp(arg[iarg+1],"c_",2) == 0) valuewhich = COMPUTE;
       else if (strncmp(arg[iarg+1],"f_",2) == 0) valuewhich = FIX;
@@ -304,6 +310,33 @@ void AdaptDtWeight::process_args(int narg, char **arg)
           else error->all(FLERR, "Illegal adapt command");
           iarg += 2;
       }
+      else if (strcmp(arg[iarg], "part_value") == 0) {
+          if (iarg + 3 > narg) error->all(FLERR, "Illegal adapt command");
+          do_value_part = 1;
+          if (strncmp(arg[iarg + 1], "c_", 2) == 0) valuewhich = COMPUTE;
+          else if (strncmp(arg[iarg + 1], "f_", 2) == 0) valuewhich = FIX;
+          else error->all(FLERR, "Illegal adapt command");
+
+          int n = strlen(arg[iarg + 1]);
+          char* suffix = new char[n];
+          strcpy(suffix, &arg[iarg + 1][2]);
+
+          char* ptr = strchr(suffix, '[');
+          if (ptr) {
+              if (suffix[strlen(suffix) - 1] != ']')
+                  error->all(FLERR, "Illegal adapt command");
+              valindex = atoi(ptr + 1);
+              *ptr = '\0';
+          }
+          else valindex = 0;
+          n = strlen(suffix) + 1;
+          valueID = new char[n];
+          strcpy(valueID, suffix);
+          delete[] suffix;
+
+          thresh = input->numeric(FLERR, arg[iarg + 2]);
+          iarg += 3;
+      }
       else error->all(FLERR, "Illegal adapt command");
   }
 
@@ -319,7 +352,8 @@ void AdaptDtWeight::check_args()
     //   (1) fix adapt Nevery is multiple of fix ave Nfreq
     //   (2) fix ave/grid is defined before fix adapt (checked in fix adapt)
 
-    if ((style == VALUE) || (style == VALUE_R)) {
+    if ((style == VALUE) || (style == VALUE_R) 
+        || (style == VALUE_PART) || do_value_part) {
         if (valuewhich == COMPUTE) {
             icompute = modify->find_compute(valueID);
             if (icompute < 0)
@@ -520,9 +554,14 @@ void AdaptDtWeight::set_weight_value() {
         int dt_weight;
 
         if (style == VALUE)   dt_weight = (int)MIN(max_dt, MAX(1, value / thresh));
+        else if (style == VALUE_PART || do_value_part)   
+            dt_weight = (int)MIN(max_dt, MAX(1, thresh * cells[icell].dt_weight / value));
         else  dt_weight = (int)MIN(max_dt, MAX(1, thresh / value));
 
-        if (mod == DT_MAX) cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
+        if (doround) dt_weight = dt_chain[dt_weight];
+
+        if (mod == DT_MAX || do_value_part) 
+            cells[icell].dt_weight = MAX(dt_weight, cells[icell].dt_weight);
         else if (mod == DT_MIN) cells[icell].dt_weight = MIN(dt_weight, cells[icell].dt_weight);
         else cells[icell].dt_weight = dt_weight;
     }
