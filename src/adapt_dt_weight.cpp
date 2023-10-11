@@ -555,7 +555,7 @@ void AdaptDtWeight::set_weight_value() {
 
         if (style == VALUE)   dt_weight = (int)MIN(max_dt, MAX(1, value / thresh));
         else if (style == VALUE_PART || do_value_part)   
-            dt_weight = (int)MIN(max_dt, MAX(1, thresh * cells[icell].dt_weight / value));
+            dt_weight = (int)MIN(max_dt, MAX(1, thresh * cells[icell].dt_weight / value + 0.99999));
         else  dt_weight = (int)MIN(max_dt, MAX(1, thresh / value));
 
         if (doround) dt_weight = dt_chain[dt_weight];
@@ -968,6 +968,8 @@ double AdaptDtWeight::cal_grad(int icell) {
     }
 }
 
+// NOTE: factor[] is ignored, scaling is based on part.dt_weight & cell.dt_weight
+
 void AdaptDtWeight::scale_particle() {
     if (!particle->sorted) particle->sort();
     int nglocal = grid->nlocal;
@@ -987,7 +989,9 @@ void AdaptDtWeight::scale_particle() {
     int nlocal = particle->nlocal;
     for (int ipart = 0; ipart < nlocal_original; ++ipart) {
         int icell = particles[ipart].icell;
-        int scale = part_scale[ipart] = floor(factor[icell] + random.uniform());
+        int scale = part_scale[ipart] 
+            = floor((double)grid->cells[icell].dt_weight / particles[ipart].dt_weight  + random.uniform());
+        particles[ipart].dt_weight = grid->cells[icell].dt_weight;
         if (scale > 1) {
             count_clone += scale - 1;
             for (int i = 1; i < scale; ++i) {
