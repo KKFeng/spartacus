@@ -407,7 +407,7 @@ double CollideBGK::attempt_collision(int icell, int, double tao)
         if (np < 4) return 0;
     }
     double bgk_nattempt;
-    if (bgk_mod == ESBGK) bgk_nattempt = Pr * np * (1 - exp(-tao));
+    if (bgk_mod == ESBGK) bgk_nattempt = np * (1 - exp(-Pr * tao));
     else  bgk_nattempt = np * (1 - exp(-tao));
     return MIN(bgk_nattempt, (double)cinfo[icell].count);
 }
