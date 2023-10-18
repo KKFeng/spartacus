@@ -5,8 +5,12 @@ The *USP* method is proposed by *Fei et al.* to simulate multi-scale gas flows.
 > [examples_USP](./examples_USP/) contains Several benchmark cases and tutorial examples.
 
 > [doc/collide.html](./doc/collide.html) & [doc/collide_bgk_modify.html](./doc/collide_bgk_modify.html)  contains essential documentation about this solver.
-				
+
 Downloading, installing and using SPARTACUS is exactly the same as SPARTA, which is fully described within [SPARTA Users Manual](https://sparta.github.io/doc/Manual.html), unless specified in the above files and directories
+
+*Coupled time step and grid adaptation based on local characteristic scale is available now!*
+
+![](./doc/JPG/adaptation.gif)
 
 **SPARTACUS Papers**
 
