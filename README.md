@@ -14,29 +14,34 @@ Downloading, installing and using SPARTACUS is exactly the same as SPARTA, which
 
 **SPARTACUS Papers**
 
-The following paper describes the *USP* method and its implementation within the SPARTACUS framework. 
+The following papar introduces the implementation of the USP method in the current version of SPARTACUS.
 
-> Feng, K., Tian, P., Zhang, J., Fei, F., Wen, D., 2022. [**SPARTACUS: An open-source unified stochastic particle solver for the simulation of multiscale nonequilibrium gas flows.**](https://www.sciencedirect.com/science/article/abs/pii/S0010465522003265) Computer Physics Communications 108607. https://doi.org/10.1016/j.cpc.2022.108607
+> Feng, K., Tian, P., [**Zhang, J.***](jun.zhang@buaa.edu.cn), Fei, F., Wen, D., 2022. [**SPARTACUS: An open-source unified stochastic particle solver for the simulation of multiscale nonequilibrium gas flows.**](https://doi.org/10.1016/j.cpc.2022.108607) Computer Physics Communications 108607. 
 
-The following are some references on the theory and application of the *USP* method.
+> Feng, K., Cui, Z., Tian, P., [**Zhang, J.***](jun.zhang@buaa.edu.cn) [**A Unified Stochastic Particle Method with Spatiotemporal Adaptation for Simulating Multiscale Gas Flows.**](http://dx.doi.org/10.2139/ssrn.4596538) Available at SSRN 4596538.
 
-> Fei, F., Zhang, J., Li, J., Liu, Z., 2020. [**A unified stochastic particle Bhatnagar-Gross-Krook method for multiscale gas flows.**](https://doi.org/10.1016/j.jcp.2019.108972) Journal of Computational Physics 400, 108972. 
 
-> Fei, F., Jenny, P., 2021. [**A hybrid particle approach based on the unified stochastic particle Bhatnagar-Gross-Krook and DSMC methods.**](https://doi.org/10.1016/j.jcp.2020.109858) Journal of Computational Physics 424, 109858. 
+The following paper covers the theoretical foundation of SPARTACUS, namely the development of USP method.
 
-> Zhang, J., John, B., Pfeiffer, M., Fei, F., Wen, D., 2019.[ **Particle-based hybrid and multiscale methods for nonequilibrium gas flows.**](https://doi.org/10.1186/s42774-019-0014-7) Adv. Aerodyn. 1, 12. 
+> Fei, F., [**Zhang, J.***](jun.zhang@buaa.edu.cn), Li, J., [**Liu, Z.***](zliu@hust.edu.cn), 2020. [**A unified stochastic particle Bhatnagar-Gross-Krook method for multiscale gas flows.**](https://doi.org/10.1016/j.jcp.2019.108972) Journal of Computational Physics 400, 108972. 
 
-> Fei, F., Hu, Y., Jenny, P., 2022. [**A unified stochastic particle method based on the Bhatnagar-Gross-Krook model for polyatomic gases and its combination with DSMC.**](https://doi.org/10.1016/j.jcp.2022.111640) Journal of Computational Physics 471, 111640. 
+> [**Fei, F.***](ffei@hust.edu.cn), Ma, Y., [**Wu, J.***](jiewu@hust.edu.cn), Zhang, J., 2021. [**An efficient algorithm of the unified stochastic particle Bhatnagar-Gross-Krook method for the simulation of multi-scale gas flows.**](https://doi.org/10.1186/s42774-021-00069-8) Adv. Aerodyn. 3, 18. 
 
-> Fei, F., Jenny, P., 2022. [**A high-order unified stochastic particle method based on the Bhatnagar-Gross-Krook model for multi-scale gas flows.**](https://doi.org/10.1016/j.cpc.2022.108303) Computer Physics Communications 274, 108303. 
+> [**Fei, F.***](ffei@hust.edu.cn), [**Hu, Y.***](yhu@imech.ac.cn), Jenny, P., 2022. [**A unified stochastic particle method based on the Bhatnagar-Gross-Krook model for polyatomic gases and its combination with DSMC.**](https://doi.org/10.1016/j.jcp.2022.111640) Journal of Computational Physics 471, 111640. 
 
-> Zhang, J., Yao, S., Fei, F., Ghalambaz, M., Wen, D., 2020. [**Competition of natural convection and thermal creep in a square enclosure.**](https://doi.org/10.1063/5.0022260) Physics of Fluids 32, 102001. 
+The following are some partial papers that discuss the application of SPARTACUS or the USP method
 
+> Tian, P., Feng, K., Ma, Q., Li, Z., [**Zhang, J.***](jun.zhang@buaa.edu.cn), 2023.[ **Unified stochastic particle simulation of polyatomic gas flows using SPARTACUS**](https://doi.org/10.1016/j.compfluid.2023.105987). Computers & Fluids 265, 105987. 
+
+> [**Zhang, J.***](jun.zhang@buaa.edu.cn), Yao, S., [**Fei, F.***](ffei@hust.edu.cn), Ghalambaz, M., Wen, D., 2020. [**Competition of natural convection and thermal creep in a square enclosure.**](https://doi.org/10.1063/5.0022260) Physics of Fluids 32, 102001. 
+
+> Ma, Q., Yang, C., Chen, S., Feng, K., Cui, Z., [**Zhang, J.***](jun.zhang@buaa.edu.cn) (2023).[**Effect of thermal fluctuations on spectra and predictability in compressible decaying isotropic turbulence.**](
+https://doi.org/10.48550/arXiv.2306.17589) arXiv preprint arXiv:2306.17589.
 
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
-SPARTA on [GitHub](https://github.com/sparta/sparta): https://github.com/sparta/sparta 
+SPARTA on GitHub: https://github.com/sparta/sparta 
 
 
 ***Original SPARTA README:***
