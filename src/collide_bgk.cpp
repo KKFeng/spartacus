@@ -244,14 +244,10 @@ void CollideBGK::conservV() {
         conservMacro[icell].coef = 1;
         if (!conservMacro[icell].done_relaxation) continue;
         double np = grid->cinfo[icell].count;
-        double theta = ((double)(np-1)/np)*grid->cells[icell].macro.Temp / particle->species[0].mass * update->boltz;
+        double theta = ((double)(np-1)/np)*conservMacro[icell].T_origin / particle->species[0].mass * update->boltz;
         if (np <= 3) continue;
         NoCommMacro& nmacro = grid->cinfo[icell].macro;
-        memcpy(conservMacro[icell].v_origin,
-            grid->cells[icell].macro.v, sizeof(double) * 3);         
-        memcpy(conservMacro[icell].v_post,
-            nmacro.sum_vi, sizeof(double) * 3);
-        for (int i = 0; i < 3; ++i) conservMacro[icell].v_post[i] /= np;
+        for (int i = 0; i < 3; ++i) conservMacro[icell].v_post[i] = nmacro.sum_vi[i] / np;
         double theta_post = (nmacro.sum_vij[0]
             - (nmacro.sum_vi[0] * nmacro.sum_vi[0] + nmacro.sum_vi[1] * nmacro.sum_vi[1]
                 + nmacro.sum_vi[2] * nmacro.sum_vi[2]) / np) / np / 3;
@@ -480,6 +476,11 @@ template < int MOD > void CollideBGK::computeMacro()
             ++count_do_childcell;
             mean_nmacro.do_relaxation = 1;
         }
+
+        // if first step, no time average.
+        int init_flag = mean_nmacro.init_flag;
+        mean_nmacro.init_flag = 0;
+
         // Currently assume all particles have same ispecies
         Particle::Species& 
             species = particle->species[particles[cinfo.first].ispecies];
@@ -487,20 +488,33 @@ template < int MOD > void CollideBGK::computeMacro()
         Params& ps = params[particles[cinfo.first].ispecies];
         double pij[6]{}, qi[3]{};
         double* sum_vij = mean_nmacro.sum_vij;
-        double* v = cmacro.v;
+        double* v = conservMacro[icell].v_origin;
         for (int i = 0; i < 3; ++i) {
             v[i] = mean_nmacro.sum_vi[i] / np;
         }
         double V_2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
         double sum_C2 = sum_vij[0] + sum_vij[1] + sum_vij[2];
         // NOTE: temperature is Unbiased estimate
-        cmacro.Temp = ((double)np / (np - 1)) * mass / update->boltz * (sum_C2 / np - V_2) / 3;
-        if (!(cmacro.Temp > ps.T_ref * 0.01)) {
+        conservMacro[icell].T_origin = 
+            ((double)np / (np - 1)) * mass / update->boltz * (sum_C2 / np - V_2) / 3;
+        if (!(conservMacro[icell].T_origin > ps.T_ref * 0.01)) {
             // if particle is weighted, particles with same velocity maybe exist, thus
             // Temp ¡Ö 0 due to truncation error of floating point numbers
             ++count_warning_ignore_childcell;
             mean_nmacro.do_relaxation = 0;
             continue;
+        }
+
+        if (init_flag) {
+            cmacro.Temp = conservMacro[icell].T_origin;
+            cmacro.v[0] = v[0]; cmacro.v[1] = v[1]; cmacro.v[2] = v[2];
+        }
+        else {
+            cmacro.Temp = cmacro.Temp * time_ave_coef 
+                + conservMacro[icell].T_origin * (1.0 - time_ave_coef);
+            cmacro.v[0] = cmacro.v[0] * time_ave_coef + v[0] * (1.0 - time_ave_coef);
+            cmacro.v[1] = cmacro.v[1] * time_ave_coef + v[1] * (1.0 - time_ave_coef);
+            cmacro.v[2] = cmacro.v[2] * time_ave_coef + v[2] * (1.0 - time_ave_coef);
         }
 
         double nrho = cinfo.count * update->fnum * cinfo.weight / cell.dt_weight / cinfo.volume;
@@ -517,14 +531,25 @@ template < int MOD > void CollideBGK::computeMacro()
             pij[5] = factor * (sum_vij[5] - np * v[1] * v[2]);
             // time-average pij
             p = (pij[0] + pij[1] + pij[2]) / 3.0;
-            for (int i = 0; i < 3; ++i) {
-                mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
-                    + (pij[i] - p) * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
+            if (init_flag) {
+                for (int i = 0; i < 3; ++i) {
+                    mean_nmacro.sigma_ij[i] = (pij[i] - p) / (1 + mean_nmacro.tao);
+                }
+                for (int i = 3; i < 6; ++i) {
+                    mean_nmacro.sigma_ij[i] = pij[i] / (1 + mean_nmacro.tao);
+                }
             }
-            for (int i = 3; i < 6; ++i) {
-                mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
-                    + pij[i] * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
+            else {
+                for (int i = 0; i < 3; ++i) {
+                    mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
+                        + (pij[i] - p) * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
+                }
+                for (int i = 3; i < 6; ++i) {
+                    mean_nmacro.sigma_ij[i] = mean_nmacro.sigma_ij[i] * time_ave_coef
+                        + pij[i] * (1 - time_ave_coef) / (1 + mean_nmacro.tao);
+                }
             }
+
             double factor_q = ((double)np / (np - 2)) * factor / (1 + Pr * mean_nmacro.tao);
             qi[0] = factor_q / 2 * (mean_nmacro.sum_C2vi[0]
                 - v[0] * sum_C2 + 2 * np * V_2 * v[0]
@@ -537,10 +562,16 @@ template < int MOD > void CollideBGK::computeMacro()
                 - 2 * (v[0] * sum_vij[4] + v[1] * sum_vij[5] + v[2] * sum_vij[2]));
 
             // time-average qi
-            for (int i = 0; i < 3; ++i) {
-                mean_nmacro.qi[i] = mean_nmacro.qi[i] * time_ave_coef
-                + qi[i] * (1.0 - time_ave_coef);
+            if (init_flag) {
+                for (int i = 0; i < 3; ++i) mean_nmacro.qi[i] = qi[i];
             }
+            else {
+                for (int i = 0; i < 3; ++i) {
+                    mean_nmacro.qi[i] = mean_nmacro.qi[i] * time_ave_coef
+                        + qi[i] * (1.0 - time_ave_coef);
+                }
+            }
+
             // prefactor of weight in Acceptance-Rejection Method
             if (MOD == USP) {
                 double Pc = exp(-alpha_Pc / (2 * mean_nmacro.tao));
