@@ -249,9 +249,6 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
   c->isplit = -1;
 
   c->dt_weight = 1;
-  // init macro
-  c->macro.Temp = 0.0;
-  c->macro.v[0] = c->macro.v[1] = c->macro.v[2] = 0.0;
 
   ChildInfo *ci = &cinfo[nlocal];
   ci->count = 0;
@@ -268,9 +265,22 @@ void Grid::add_child_cell(cellint id, int level, double *lo, double *hi)
   else
     ci->volume = (hi[0]-lo[0]) * (hi[1]-lo[1]);
 
-  // increment both since are adding an unsplit cell
-
+  //init nmacro
+  ci->macro.init_flag = 1;
+  ci->macro.do_relaxation = 0;
+  ci->macro.sum_vi[0] = ci->macro.sum_vi[1] = ci->macro.sum_vi[2] = 0.0;
+  ci->macro.sum_vij[0] = ci->macro.sum_vij[1] = ci->macro.sum_vij[2] = 0.0;
+  ci->macro.sum_vij[3] = ci->macro.sum_vij[4] = ci->macro.sum_vij[5] = 0.0;
+  ci->macro.sum_C2vi[0] = ci->macro.sum_C2vi[1] = ci->macro.sum_C2vi[2] = 0.0;
+  ci->macro.sigma_ij[0] = ci->macro.sigma_ij[1] = ci->macro.sigma_ij[2] = 0.0;
+  ci->macro.qi[0] = ci->macro.qi[1] = ci->macro.qi[2] = 0.0;
   ci->macro.Wmax = 1.0;
+  ci->macro.coef_A = ci->macro.coef_B = ci->macro.tao = 0.0;
+  // init macro
+  c->macro.Temp = 0.0;
+  c->macro.v[0] = c->macro.v[1] = c->macro.v[2] = 0.0;
+
+  // increment both since are adding an unsplit cell
   nunsplitlocal++;
   nlocal++;
 }

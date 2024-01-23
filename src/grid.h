@@ -28,6 +28,7 @@ struct CommMacro {
     double Temp;
 };
 struct NoCommMacro {
+    int init_flag;
     int do_relaxation;
     double sum_vi[3];
                        //(0, 1, 2, 3, 4, 5)
