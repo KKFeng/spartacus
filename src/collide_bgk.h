@@ -74,6 +74,7 @@ class CollideBGK : public Collide {
   {
       int done_relaxation;
       double coef;
+      double T_origin;
       double v_origin[3], v_post[3];
   };
 

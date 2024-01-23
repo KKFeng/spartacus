@@ -226,15 +226,7 @@ void CollideBGK::collisions()
 ------------------------------------------------------------------------- */
 
 void CollideBGK::conservV() {
-    int nlocal = grid->nlocal;
-    if (!(nmaxconserv >= 0)) error->one(FLERR,
-        "CollideBGK::conservV(): !(nmaxconserv >= 0)");
-    if (nlocal > nmaxconserv) {
-        while (nlocal > nmaxconserv) nmaxconserv += DELTAPART;
-        memory->destroy(conservMacro);
-        memory->create(conservMacro, nmaxconserv, "collideBGK:postmacro");
-    }
-    for (int i = 0; i < nlocal; ++i) {
+    for (int i = 0; i < nglocal; ++i) {
         NoCommMacro& nmacro = grid->cinfo[i].macro;
         nmacro.sum_vi[0] = nmacro.sum_vi[1] = nmacro.sum_vi[2] = 0.0;
         nmacro.sum_vij[0] = 0.0;
@@ -247,7 +239,7 @@ void CollideBGK::conservV() {
             nmacro.sum_vij[0] += part.v[i] * part.v[i];
         }
     }
-    for (int icell = 0; icell < nlocal; ++icell) {
+    for (int icell = 0; icell < nglocal; ++icell) {
         conservMacro[icell].done_relaxation = grid->cinfo[icell].macro.do_relaxation;
         conservMacro[icell].coef = 1;
         if (!conservMacro[icell].done_relaxation) continue;
@@ -431,9 +423,13 @@ int CollideBGK::perform_collision(Particle::OnePart*&,
 
 template < int MOD > void CollideBGK::computeMacro() 
 {
+    if (nglocal > nmaxconserv) {
+        while (nglocal > nmaxconserv) nmaxconserv += DELTAPART;
+        memory->destroy(conservMacro);
+        memory->create(conservMacro, nmaxconserv, "collideBGK:conserve_macro");
+    }
     for (int icell = 0; icell < nglocal; icell++)
     {
-        grid->cells[icell].macro.Temp = 0.0;
         NoCommMacro& nmacro = grid->cinfo[icell].macro;
         nmacro.sum_vi[0] = nmacro.sum_vi[1] = nmacro.sum_vi[2] = 0.0;
         nmacro.sum_vij[0] = nmacro.sum_vij[1] = nmacro.sum_vij[2] = 0.0;
